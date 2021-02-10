@@ -16,25 +16,26 @@ def cached_function(func):
 
 
 @cached_function
-def p_lie(n, last_claim):
+def p_lie(n: int, last_claim: int) -> float:
     p_had_to_lie = Q[last_claim]/(1-P21)
     return p_had_to_lie
 
 
 @cached_function
-def mu_throw(n, last_claim, players_until_me):
-    """ Expected outcome for me, if the player throws. """
+def mu_throw(n: int, last_claim: int, players_until_me: int, rounds_remaining: int) -> float:
+    """ Expected outcome for me, if the acting player throws. """
     loss_21 = 1/(n-1)
     if players_until_me == 0:
         loss_21 = -1
 
-    mu_best_lie, mu_throw_true_claim = calculate_lines(n, last_claim, players_until_me)
+    mu_best_lie, mu_throw_true_claim = calculate_lines(n, last_claim, players_until_me, rounds_remaining)
     _mu_throw = P21 * loss_21 + Q[last_claim] * mu_best_lie + np.inner(P, mu_throw_true_claim)
     return _mu_throw
 
 
 @cached_function
-def calculate_lines(n, last_claim, players_until_me):
+def calculate_lines(n: int, last_claim: int, players_until_me: int, rounds_remaining: int) -> (float, np.array):
+    """ Collapse the subbranches of the tree diagram. """
     next_players_until_me = players_until_me - 1
     loss_proc_doubt_correct = -1/(n-1)
     loss_proc_doubt_miss = -1/(n-1)
@@ -47,32 +48,36 @@ def calculate_lines(n, last_claim, players_until_me):
     mu_throw_true_claim = np.zeros(21)
 
     for claim in V[last_claim + 1:]:
-        mu_proc_throw = mu_throw(n, claim, next_players_until_me)
-        p_proc_doubt = do_doubt(n, last_claim, claim)
+        mu_proc_throw = mu_throw(n, claim, next_players_until_me, rounds_remaining)
+        p_proc_doubt = do_doubt(n, last_claim, claim, rounds_remaining)
         weighted_mu_proc_throw = (1 - p_proc_doubt) * mu_proc_throw
-        mu_throw_true_claim[claim] = weighted_mu_proc_throw + p_proc_doubt * loss_proc_doubt_miss
-        mu_throw_false_claim[claim] = weighted_mu_proc_throw + p_proc_doubt * loss_proc_doubt_correct
+        mu_proc_restart = mu(n, 0, 0, next_players_until_me, rounds_remaining - 1)
+        mu_throw_true_claim[claim] = weighted_mu_proc_throw + p_proc_doubt * (loss_proc_doubt_miss + mu_proc_restart)
+        mu_throw_false_claim[claim] = weighted_mu_proc_throw + p_proc_doubt * (loss_proc_doubt_correct + mu_proc_restart)
     # assumption: always use the optimal lie
     mu_best_lie = min(mu_throw_false_claim)
     return mu_best_lie, mu_throw_true_claim
 
 
 @cached_function
-def mu_doubt(n, claim_m2):
+def mu_doubt(n: int, claim_m2: int, players_until_me: int, rounds_remaining: int) -> float:
     """
     Expected outcome, if I doubt the last last claim.
-    :param n: number of players
-    :param claim_m2: claim made by P_-2
     """
-    return 1 - n/(n-1) * p_lie(n, claim_m2)
+    loss_doubt_correct = -1/(n-1)
+    loss_doubt_miss = -1/(n-1)
+    if players_until_me == 0:
+        loss_doubt_miss = 1
+    elif players_until_me == n - 1:
+        loss_doubt_correct = 1
+    mu_restart = mu(n, 0, 0, players_until_me, rounds_remaining - 1)
+    return loss_doubt_correct * p_lie(n, claim_m2) + loss_doubt_miss * (1 - p_lie(n, claim_m2)) + mu_restart
 
 
 @cached_function
-def do_doubt(n, claim_m2, claim_m1):
+def do_doubt(n: int, claim_m2: int, claim_m1: int, rounds_remaining: int) -> bool:
     """
-    :param n: number of players
-    :param claim_m2: claim made by the player before the previous one
-    :param claim_m1: claim made by the previous player
+    Is it optimal to doubt claim_m1?
     """
     if claim_m2 == claim_m1 == 0:
         # not allowed to doubt
@@ -81,19 +86,24 @@ def do_doubt(n, claim_m2, claim_m1):
         # penalize rule breaking
         return True
     # assumption: always take the optimal action
-    return mu_doubt(n, claim_m2) < mu_throw(n, claim_m1, 0)
+    return mu_doubt(n, claim_m2, 0, rounds_remaining) < mu_throw(n, claim_m1, 0, rounds_remaining)
 
 
 @cached_function
-def mu(n, claim_m2, claim_m1):
+def mu(n: int, claim_m2: int, claim_m1: int, players_until_me: int, rounds_remaining: int) -> float:
     """
     :param n: number of players
     :param claim_m2: claim made by the player before the previous one
     :param claim_m1: claim made by the previous player
+    :param players_until_me: players to act before me (0 if it's my turn)
+    :param rounds_remaining: rounds remaining after the current one
     """
     # follow rules
+    if rounds_remaining < 0:
+        return 0
     if claim_m2 == claim_m1 == 0:
-        return mu_throw(n, claim_m1, 0)
+        return mu_throw(n, claim_m1, 0, rounds_remaining)
     elif claim_m1 not in V[claim_m2 + 1:]:
-        return mu_doubt(n, claim_m2)
-    return min((mu_doubt(n, claim_m2), mu_throw(n, claim_m1, 0)))
+        return mu_doubt(n, claim_m2, players_until_me, rounds_remaining)
+    return min(mu_doubt(n, claim_m2, players_until_me, rounds_remaining),
+               mu_throw(n, claim_m1, players_until_me, rounds_remaining))
