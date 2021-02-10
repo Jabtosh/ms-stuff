@@ -43,8 +43,8 @@ def calculate_lines(n, last_claim, players_until_me):
         loss_proc_doubt_correct = 1
     elif players_until_me == 1:
         loss_proc_doubt_miss = 1
-    mu_throw_false_claim = np.ones(20)*loss_proc_doubt_correct
-    mu_throw_true_claim = np.zeros(20)
+    mu_throw_false_claim = np.ones(21)*loss_proc_doubt_correct
+    mu_throw_true_claim = np.zeros(21)
 
     for claim in V[last_claim + 1:]:
         mu_proc_throw = mu_throw(n, claim, next_players_until_me)
@@ -74,7 +74,8 @@ def do_doubt(n, claim_m2, claim_m1):
     :param claim_m2: claim made by the player before the previous one
     :param claim_m1: claim made by the previous player
     """
-    if claim_m2 is claim_m1 is None:
+    if claim_m2 == claim_m1 == 0:
+        # not allowed to doubt
         return False
     elif claim_m1 not in V[claim_m2 + 1:]:
         # penalize rule breaking
@@ -90,9 +91,9 @@ def mu(n, claim_m2, claim_m1):
     :param claim_m2: claim made by the player before the previous one
     :param claim_m1: claim made by the previous player
     """
-    if claim_m2 is claim_m1 is None:
+    # follow rules
+    if claim_m2 == claim_m1 == 0:
         return mu_throw(n, claim_m1, 0)
     elif claim_m1 not in V[claim_m2 + 1:]:
         return mu_doubt(n, claim_m2)
-    # assumption: always take the optimal action
     return min((mu_doubt(n, claim_m2), mu_throw(n, claim_m1, 0)))
