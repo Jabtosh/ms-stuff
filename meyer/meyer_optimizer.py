@@ -1,9 +1,10 @@
 import numpy as np
+
 from constants import P21, V, P, Q
 
 
 def cached_function(func):
-
+    """ Currently, only made compatible with positional arguments. """
     def inner(*args):
         if args not in inner.cache.keys():
             inner.cache[args] = func(*args)
@@ -12,19 +13,22 @@ def cached_function(func):
     inner.cache = {}
     return inner
 
+
 # assumption: only metric = my points vs the average
 
 
 @cached_function
 def p_lie(n: int, last_claim: int) -> float:
-    p_had_to_lie = Q[last_claim]/(1-P21)
+    """ Probability, that a player lied, given the last claim. """
+    # TODO: include needless lies
+    p_had_to_lie = Q[last_claim] / (1 - P21)
     return p_had_to_lie
 
 
 @cached_function
 def mu_throw(n: int, last_claim: int, players_until_me: int, rounds_remaining: int) -> float:
     """ Expected outcome for me, if the acting player throws. """
-    loss_21 = 1/(n-1)
+    loss_21 = 1 / (n - 1)
     if players_until_me == 0:
         loss_21 = -1
 
@@ -37,26 +41,35 @@ def mu_throw(n: int, last_claim: int, players_until_me: int, rounds_remaining: i
 def calculate_lines(n: int, last_claim: int, players_until_me: int, rounds_remaining: int) -> (float, np.array):
     """ Collapse the subbranches of the tree diagram. """
     next_players_until_me = players_until_me - 1
-    loss_proc_doubt_correct = -1/(n-1)
-    loss_proc_doubt_miss = -1/(n-1)
+    loss_proc_doubt_correct = -1 / (n - 1)
+    loss_proc_doubt_miss = -1 / (n - 1)
     if players_until_me == 0:
         next_players_until_me = n - 1
         loss_proc_doubt_correct = 1
     elif players_until_me == 1:
         loss_proc_doubt_miss = 1
-    mu_throw_false_claim = np.ones(21)*loss_proc_doubt_correct
+    mu_throw_false_claim = np.ones(21) * loss_proc_doubt_correct
     mu_throw_true_claim = np.zeros(21)
 
     for claim in V[last_claim + 1:]:
-        mu_proc_throw = mu_throw(n, claim, next_players_until_me, rounds_remaining)
-        p_proc_doubt = do_doubt(n, last_claim, claim, rounds_remaining)
-        weighted_mu_proc_throw = (1 - p_proc_doubt) * mu_proc_throw
-        mu_proc_restart = mu(n, 0, 0, next_players_until_me, rounds_remaining - 1)
-        mu_throw_true_claim[claim] = weighted_mu_proc_throw + p_proc_doubt * (loss_proc_doubt_miss + mu_proc_restart)
-        mu_throw_false_claim[claim] = weighted_mu_proc_throw + p_proc_doubt * (loss_proc_doubt_correct + mu_proc_restart)
+        mu_throw_true_claim[claim], mu_throw_false_claim[claim] = _follow_claim(
+            n, last_claim, claim, next_players_until_me, rounds_remaining, loss_proc_doubt_miss, loss_proc_doubt_correct
+        )
     # assumption: always use the optimal lie
     mu_best_lie = min(mu_throw_false_claim)
     return mu_best_lie, mu_throw_true_claim
+
+
+@cached_function
+def _follow_claim(n, last_claim, claim, next_players_until_me, rounds_remaining, loss_proc_doubt_miss,
+                  loss_proc_doubt_correct):
+    mu_proc_throw = mu_throw(n, claim, next_players_until_me, rounds_remaining)
+    p_proc_doubt = do_doubt(n, last_claim, claim, rounds_remaining)
+    weighted_mu_proc_throw = (1 - p_proc_doubt) * mu_proc_throw
+    mu_proc_restart = mu(n, 0, 0, next_players_until_me, rounds_remaining - 1)
+    _mu_throw_true_claim = weighted_mu_proc_throw + p_proc_doubt * (loss_proc_doubt_miss + mu_proc_restart)
+    _mu_throw_false_claim = weighted_mu_proc_throw + p_proc_doubt * (loss_proc_doubt_correct + mu_proc_restart)
+    return _mu_throw_true_claim, _mu_throw_false_claim
 
 
 @cached_function
@@ -64,8 +77,8 @@ def mu_doubt(n: int, claim_m2: int, players_until_me: int, rounds_remaining: int
     """
     Expected outcome, if I doubt the last last claim.
     """
-    loss_doubt_correct = -1/(n-1)
-    loss_doubt_miss = -1/(n-1)
+    loss_doubt_correct = -1 / (n - 1)
+    loss_doubt_miss = -1 / (n - 1)
     if players_until_me == 0:
         loss_doubt_miss = 1
     elif players_until_me == n - 1:
