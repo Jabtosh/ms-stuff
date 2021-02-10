@@ -5,6 +5,7 @@ from constants import P21, V, P, Q
 
 def cached_function(func):
     """ Currently, only made compatible with positional arguments. """
+
     def inner(*args):
         if args not in inner.cache.keys():
             inner.cache[args] = func(*args)
@@ -14,7 +15,7 @@ def cached_function(func):
     return inner
 
 
-# assumption: only metric = my points vs the average
+""" Assumption: only metric = my points vs the average """
 
 
 @cached_function
@@ -38,23 +39,23 @@ def mu_throw(n: int, last_claim: int, players_until_me: int, rounds_remaining: i
 
 
 @cached_function
-def calculate_lines(n: int, last_claim: int, players_until_me: int, rounds_remaining: int) -> (float, np.array):
+def calculate_lines(n: int, last_claim: int, players_until_me: int, rounds_remaining: int) -> (float, np.ndarray):
     """ Collapse the subbranches of the tree diagram. """
-    next_players_until_me = players_until_me - 1
+    new_players_until_me = players_until_me - 1
     loss_proc_doubt_correct = -1 / (n - 1)
     loss_proc_doubt_miss = -1 / (n - 1)
     if players_until_me == 0:
-        next_players_until_me = n - 1
+        new_players_until_me = n - 1
         loss_proc_doubt_correct = 1
-    elif players_until_me == 1:
+    elif players_until_me == n - 1:
         loss_proc_doubt_miss = 1
     mu_throw_false_claim = np.ones(21) * loss_proc_doubt_correct
     mu_throw_true_claim = np.zeros(21)
 
     for claim in V[last_claim + 1:]:
         mu_throw_true_claim[claim], mu_throw_false_claim[claim] = _follow_claim(
-            n, last_claim, claim, next_players_until_me, rounds_remaining, loss_proc_doubt_miss, loss_proc_doubt_correct
-        )
+            n, last_claim, claim, new_players_until_me, rounds_remaining, loss_proc_doubt_miss, loss_proc_doubt_correct)
+
     # assumption: always use the optimal lie
     mu_best_lie = min(mu_throw_false_claim)
     return mu_best_lie, mu_throw_true_claim
@@ -74,9 +75,7 @@ def _follow_claim(n, last_claim, claim, next_players_until_me, rounds_remaining,
 
 @cached_function
 def mu_doubt(n: int, claim_m2: int, players_until_me: int, rounds_remaining: int) -> float:
-    """
-    Expected outcome, if I doubt the last last claim.
-    """
+    """ Expected outcome, if I doubt the last last claim. """
     loss_doubt_correct = -1 / (n - 1)
     loss_doubt_miss = -1 / (n - 1)
     if players_until_me == 0:
@@ -89,9 +88,7 @@ def mu_doubt(n: int, claim_m2: int, players_until_me: int, rounds_remaining: int
 
 @cached_function
 def do_doubt(n: int, claim_m2: int, claim_m1: int, rounds_remaining: int) -> bool:
-    """
-    Is it optimal to doubt claim_m1?
-    """
+    """ Is it optimal to doubt claim_m1? """
     if claim_m2 == claim_m1 == 0:
         # not allowed to doubt
         return False
@@ -115,7 +112,7 @@ def mu(n: int, claim_m2: int, claim_m1: int, players_until_me: int, rounds_remai
     if rounds_remaining < 0:
         return 0
     if claim_m2 == claim_m1 == 0:
-        return mu_throw(n, claim_m1, 0, rounds_remaining)
+        return mu_throw(n, claim_m1, players_until_me, rounds_remaining)
     elif claim_m1 not in V[claim_m2 + 1:]:
         return mu_doubt(n, claim_m2, players_until_me, rounds_remaining)
     return min(mu_doubt(n, claim_m2, players_until_me, rounds_remaining),
