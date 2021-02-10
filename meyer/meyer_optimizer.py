@@ -47,13 +47,13 @@ def calculate_lines(n: int, last_claim: int, players_until_me: int, rounds_remai
     if players_until_me == 0:
         new_players_until_me = n - 1
         loss_proc_doubt_correct = 1
-    elif players_until_me == n - 1:
+    elif players_until_me == 1:
         loss_proc_doubt_miss = 1
     mu_throw_false_claim = np.ones(21) * loss_proc_doubt_correct
     mu_throw_true_claim = np.zeros(21)
 
     for claim in V[last_claim + 1:]:
-        mu_throw_true_claim[claim], mu_throw_false_claim[claim] = _follow_claim(
+        mu_throw_true_claim[claim], mu_throw_false_claim[claim] = _mu_claim_possibilities(
             n, last_claim, claim, new_players_until_me, rounds_remaining, loss_proc_doubt_miss, loss_proc_doubt_correct)
 
     # assumption: always use the optimal lie
@@ -62,20 +62,22 @@ def calculate_lines(n: int, last_claim: int, players_until_me: int, rounds_remai
 
 
 @cached_function
-def _follow_claim(n, last_claim, claim, next_players_until_me, rounds_remaining, loss_proc_doubt_miss,
-                  loss_proc_doubt_correct):
-    mu_proc_throw = mu_throw(n, claim, next_players_until_me, rounds_remaining)
-    p_proc_doubt = do_doubt(n, last_claim, claim, rounds_remaining)
-    weighted_mu_proc_throw = (1 - p_proc_doubt) * mu_proc_throw
-    mu_proc_restart = mu(n, 0, 0, next_players_until_me, rounds_remaining - 1)
-    _mu_throw_true_claim = weighted_mu_proc_throw + p_proc_doubt * (loss_proc_doubt_miss + mu_proc_restart)
-    _mu_throw_false_claim = weighted_mu_proc_throw + p_proc_doubt * (loss_proc_doubt_correct + mu_proc_restart)
+def _mu_claim_possibilities(n: int, last_claim: int, claim: int, next_players_until_me: int, rounds_remaining: int,
+                            loss_proc_doubt_miss: float, loss_proc_doubt_correct: float) -> (float, float):
+    if do_doubt(n, last_claim, claim, rounds_remaining):
+        mu_proc_restart = mu(n, 0, 0, next_players_until_me, rounds_remaining - 1)
+        _mu_throw_true_claim = mu_proc_restart + loss_proc_doubt_miss
+        _mu_throw_false_claim = mu_proc_restart + loss_proc_doubt_correct
+    else:
+        mu_proc_throw = mu_throw(n, claim, next_players_until_me, rounds_remaining)
+        _mu_throw_true_claim = mu_proc_throw
+        _mu_throw_false_claim = mu_proc_throw
     return _mu_throw_true_claim, _mu_throw_false_claim
 
 
 @cached_function
 def mu_doubt(n: int, claim_m2: int, players_until_me: int, rounds_remaining: int) -> float:
-    """ Expected outcome, if I doubt the last last claim. """
+    """ Expected outcome, if I doubt the last claim. """
     loss_doubt_correct = -1 / (n - 1)
     loss_doubt_miss = -1 / (n - 1)
     if players_until_me == 0:
@@ -93,8 +95,7 @@ def do_doubt(n: int, claim_m2: int, claim_m1: int, rounds_remaining: int) -> boo
         # not allowed to doubt
         return False
     elif claim_m1 not in V[claim_m2 + 1:]:
-        # penalize rule breaking
-        return True
+        raise RuleException("Previous player broke the rules.")
     # assumption: always take the optimal action
     return mu_doubt(n, claim_m2, 0, rounds_remaining) < mu_throw(n, claim_m1, 0, rounds_remaining)
 
@@ -114,6 +115,10 @@ def mu(n: int, claim_m2: int, claim_m1: int, players_until_me: int, rounds_remai
     if claim_m2 == claim_m1 == 0:
         return mu_throw(n, claim_m1, players_until_me, rounds_remaining)
     elif claim_m1 not in V[claim_m2 + 1:]:
-        return mu_doubt(n, claim_m2, players_until_me, rounds_remaining)
+        raise RuleException("Previous player broke the rules.")
     return min(mu_doubt(n, claim_m2, players_until_me, rounds_remaining),
                mu_throw(n, claim_m1, players_until_me, rounds_remaining))
+
+
+class RuleException(Exception):
+    pass
