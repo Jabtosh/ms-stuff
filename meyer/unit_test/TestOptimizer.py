@@ -3,6 +3,7 @@ from meyer_optimizer import Q, p_lie, mu_throw, mu_doubt, mu
 from unit_test.ExtendedTestCase import ExtendedTestCase
 
 N_MAX = 10
+ROUNDS_MAX = 3
 
 
 class TestOptimizer(ExtendedTestCase):
@@ -11,19 +12,38 @@ class TestOptimizer(ExtendedTestCase):
             self.assertEqual(Q[last_claim] / (1 - 2 / 36), p_lie(0, last_claim))
 
     def test_mu(self):
-        for n in range(2, N_MAX):
+        ev00 = {2: [-0.1649464572668927, 0.1649464572668927],
+                3: [-0.26564621360387985, 0.1743969889897541, 0.0912492246141258],
+                4: [-0.28905977587319165, 0.20589396975980648, 0.15885848052258486, -0.07569267440919969],
+                5: [-0.25121673472441375, 0.23630060628840122, 0.19496161537897222, -0.02473356843201476,
+                    -0.15531191851094497]}
+        for n in range(2, max(ev00.keys())):
             all_ev = [mu(n, 0, 0, p, 0) for p in range(n)]
             self.assertAlmostEqual(0, sum(all_ev))
+            self.assertSeqAlmostEqual(ev00[n], all_ev)
+
+    def test_mu_extensively(self):
+        for n in range(2, N_MAX):
+            for rounds in range(ROUNDS_MAX):
+                for claim_m2 in V[::-1]:
+                    for claim_m1 in V[claim_m2 + 1:]:
+                        all_ev = [mu(n, claim_m2, claim_m1, p, rounds) for p in range(n)]
+                        self.assertAlmostEqual(0, sum(all_ev),
+                                               msg=f"n: {n}, rounds: {rounds}, claims: {claim_m2}-{claim_m1}")
 
     def test_mu_doubt(self):
         for n in range(2, N_MAX):
-            for v in V:
-                self.assertAlmostEqual(0, sum(mu_doubt(n, v, p, 0) for p in range(n)), msg=f"n={n}, v={v}")
+            self.assertEqual(1, mu_doubt(n, 0, 0, 0))
+        for n in range(2, N_MAX):
+            for rounds in range(ROUNDS_MAX):
+                for v in V:
+                    self.assertAlmostEqual(0, sum(mu_doubt(n, v, p, rounds) for p in range(n)), msg=f"n={n}, v={v}")
 
     def test_mu_throw(self):
         for n in range(2, N_MAX):
-            for v in V:
-                self.assertAlmostEqual(0, sum(mu_throw(n, v, p, 0) for p in range(n)), msg=f"n={n}, v={v}")
+            for rounds in range(ROUNDS_MAX):
+                for v in V:
+                    self.assertAlmostEqual(0, sum(mu_throw(n, v, p, rounds) for p in range(n)), msg=f"n={n}, v={v}")
 
         n = 2
         self.assertSeqAlmostEqual([0.8888888888888888, -0.8888888888888888],

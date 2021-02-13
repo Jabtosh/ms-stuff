@@ -43,13 +43,13 @@ class ExtendedTestCase(TestCase):
                 try:
                     item1 = seq1[i]
                 except (TypeError, IndexError, NotImplementedError):
-                    differing += ('\nUnable to index element %d of first %s\n' % (i, seq_type_name))
+                    differing += f'\nUnable to index element {i} of first {seq_type_name}\n'
                     break
 
                 try:
                     item2 = seq2[i]
                 except (TypeError, IndexError, NotImplementedError):
-                    differing += ('\nUnable to index element %d of second %s\n' % (i, seq_type_name))
+                    differing += f'\nUnable to index element {i} of second {seq_type_name}\n'
                     break
 
                 try:
@@ -66,7 +66,7 @@ class ExtendedTestCase(TestCase):
             elif len1 < len2:
                 differing += f'\nSecond {seq_type_name} contains {len2 - len1} additional elements.\n'
 
-        standardMsg = differing
+        standardMsg = differing + f"\n{seq2}\n"
         diffMsg = '\n' + '\n'.join(
             difflib.ndiff(pprint.pformat(seq1).splitlines(),
                           pprint.pformat(seq2).splitlines()))

@@ -94,7 +94,7 @@ def _mu_claim_possibilities(n: int, last_claim: int, claim: int, next_players_un
 
 @cache_results
 def mu_doubt(n: int, claim_m2: int, players_until_me: int, rounds_remaining: int) -> float:
-    """ Expected outcome, if I doubt the last claim. """
+    """ Expected outcome for me, if the last claim is doubted. """
     loss_doubt_correct = -1. / (n - 1)
     loss_doubt_miss = -1. / (n - 1)
     if players_until_me == 0:
@@ -141,8 +141,9 @@ def mu(n: int, claim_m2: int, claim_m1: int, players_until_me: int, rounds_remai
         return mu_throw(n, claim_m1, players_until_me, rounds_remaining)
     elif claim_m1 not in V[claim_m2 + 1:]:
         raise RuleException("Previous player broke the rules.")
-    return min(mu_doubt(n, claim_m2, players_until_me, rounds_remaining),
-               mu_throw(n, claim_m1, players_until_me, rounds_remaining))
+    p_doubt = do_doubt(n, claim_m2, claim_m1, rounds_remaining)
+    return p_doubt * mu_doubt(n, claim_m2, players_until_me, rounds_remaining) + \
+           (1-p_doubt) * mu_throw(n, claim_m1, players_until_me, rounds_remaining)
 
 
 class RuleException(Exception):

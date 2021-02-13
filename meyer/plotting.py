@@ -2,7 +2,7 @@ import math
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import colors, backend_bases
+from matplotlib import colors
 
 from constants import L, V
 from meyer_optimizer import do_doubt, mu
