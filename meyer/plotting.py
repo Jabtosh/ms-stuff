@@ -58,7 +58,8 @@ def plot_mu():
 if __name__ == '__main__':
     subplot_adjustments = dict(left=0.06, bottom=0.06, right=0.85, top=0.9, wspace=0.03, hspace=0.40)
     rounds_remaining = 0
-    player_counts = [2, 3, 4, 5]
+    player_counts = [2, 4, 8, 100]
     n_plots = len(player_counts)
 
     plot_mu()
+    plot_do_doubt()

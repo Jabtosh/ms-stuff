@@ -17,7 +17,7 @@ def cache_results(func):
     return inner
 
 
-""" Assumption: only metric = my points vs the average """
+""" Assumption: only metric = minimize my points compared to the average among the others """
 
 
 @cache_results
@@ -36,18 +36,33 @@ def p_has_to_lie(last_claim: int) -> float:
 @cache_results
 def mu_throw(n: int, last_claim: int, players_until_me: int, rounds_remaining: int) -> float:
     """ Expected outcome for me, if the acting player throws. """
-    loss_21 = 1. / (n - 1)
-    if players_until_me == 0:
-        loss_21 = -1.
+    loss_21 = -1. if players_until_me == 0 else 1. / (n - 1)
 
-    mu_throw_v = calculate_lines(n, last_claim, players_until_me, rounds_remaining)
-    _mu_throw = P21 * loss_21 + P @ mu_throw_v
-    return _mu_throw
+    _p_lie = p_has_to_lie(last_claim)
+    _mu_throw_v_thrower_perspective = mu_throw_v(n, last_claim, _p_lie, 0, rounds_remaining)
+    best_lie = _mu_throw_v_thrower_perspective.argmin()
+
+    _p_lie = p_lie(n, last_claim)
+    _mu_throw_v = mu_throw_v(n, last_claim, _p_lie, players_until_me, rounds_remaining)
+    for claim in V[:last_claim + 1]:
+        _mu_throw_v[claim] = _mu_throw_v[best_lie]
+
+    return P21 * loss_21 + P @ _mu_throw_v
+
+
+def mu_throw_v(n: int, last_claim: int, _p_lie: float, players_until_me: int, rounds_remaining: int) -> np.ndarray:
+    loss_doubt, new_players_until_me = _perspective_parameters(n, _p_lie, players_until_me)
+    _mu_throw_v = np.ones(len(V)) * loss_doubt
+    for claim in V[last_claim + 1:]:
+        _p_doubt = do_doubt(n, last_claim, claim, rounds_remaining)
+        mu_proc_throw = mu_throw(n, claim, new_players_until_me, rounds_remaining)
+        mu_proc_restart = mu(n, 0, 0, new_players_until_me, rounds_remaining - 1)
+        _mu_throw_v[claim] = _p_doubt * (mu_proc_restart + loss_doubt) + (1 - _p_doubt) * mu_proc_throw
+    return _mu_throw_v
 
 
 @cache_results
-def calculate_lines(n: int, last_claim: int, players_until_me: int, rounds_remaining: int) -> (float, np.ndarray):
-    """ Collapse the subbranches of the tree. """
+def _perspective_parameters(n: int, _p_lie: float, players_until_me: int) -> (float, int):
     new_players_until_me = players_until_me - 1
     loss_proc_doubt_correct = -1. / (n - 1)
     loss_proc_doubt_miss = -1. / (n - 1)
@@ -56,40 +71,8 @@ def calculate_lines(n: int, last_claim: int, players_until_me: int, rounds_remai
         loss_proc_doubt_correct = 1.
     elif players_until_me == 1:
         loss_proc_doubt_miss = 1.
-
-    # perspective of the thrower
-    # assumption: always use the same lie
-    # pick best under the assumption
-    # TODO: conditional probabilities depending on claim
-    # TODO: refactor
-    _p_lie = p_has_to_lie(last_claim)
-    loss_doubt = (1. * _p_lie - 1. / (n - 1) * (1 - _p_lie))
-    mu_throw_false_claim = np.ones(21)
-    for claim in V[last_claim + 1:]:
-        mu_throw_false_claim[claim] = _mu_claim_possibilities(n, last_claim, claim, n - 1, rounds_remaining,
-                                                              loss_doubt)
-    best_lie = mu_throw_false_claim.argmin()
-
-    _p_lie = p_lie(n, last_claim)
     loss_doubt = (loss_proc_doubt_correct * _p_lie + loss_proc_doubt_miss * (1 - _p_lie))
-    mu_throw_true_claim = np.ones(21) * loss_doubt
-    for claim in V[last_claim + 1:]:
-        mu_throw_true_claim[claim] = _mu_claim_possibilities(n, last_claim, claim, new_players_until_me,
-                                                             rounds_remaining, loss_doubt)
-    for claim in V[:last_claim + 1]:
-        mu_throw_true_claim[claim] = mu_throw_true_claim[best_lie]
-    return mu_throw_true_claim
-
-
-@cache_results
-def _mu_claim_possibilities(n: int, last_claim: int, claim: int, next_players_until_me: int, rounds_remaining: int,
-                            loss_doubt: float) -> (float, float):
-    _p_doubt = do_doubt(n, last_claim, claim, rounds_remaining)
-    _q_believe = 1 - _p_doubt
-    mu_proc_throw = mu_throw(n, claim, next_players_until_me, rounds_remaining)
-    mu_proc_restart = mu(n, 0, 0, next_players_until_me, rounds_remaining - 1)
-    _mu_throw_v = _q_believe * mu_proc_throw + _p_doubt * (mu_proc_restart + loss_doubt)
-    return _mu_throw_v
+    return loss_doubt, new_players_until_me
 
 
 @cache_results
@@ -142,8 +125,8 @@ def mu(n: int, claim_m2: int, claim_m1: int, players_until_me: int, rounds_remai
     elif claim_m1 not in V[claim_m2 + 1:]:
         raise RuleException("Previous player broke the rules.")
     p_doubt = do_doubt(n, claim_m2, claim_m1, rounds_remaining)
-    return p_doubt * mu_doubt(n, claim_m2, players_until_me, rounds_remaining) + \
-           (1-p_doubt) * mu_throw(n, claim_m1, players_until_me, rounds_remaining)
+    return (p_doubt * mu_doubt(n, claim_m2, players_until_me, rounds_remaining) +
+            (1 - p_doubt) * mu_throw(n, claim_m1, players_until_me, rounds_remaining))
 
 
 class RuleException(Exception):
