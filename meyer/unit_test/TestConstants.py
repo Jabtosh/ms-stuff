@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from constants import Q, P21, P, V
+from constants import Q, P21, P, V, L
 
 
 class TestConstants(TestCase):
@@ -10,5 +10,6 @@ class TestConstants(TestCase):
         self.assertAlmostEqual(1, Q[-1] + P21)
         self.assertEqual(len(V), len(Q))
         self.assertEqual(len(V), len(P))
+        self.assertEqual(len(V), L)
         for p, q in zip(P.cumsum(), Q):
             self.assertAlmostEqual(p, q)

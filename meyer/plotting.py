@@ -1,64 +1,64 @@
-import numpy as np
+import math
+
 import matplotlib.pyplot as plt
-from matplotlib import colors
+import numpy as np
+from matplotlib import colors, backend_bases
+
+from constants import L, V
+from meyer_optimizer import do_doubt, mu
 
 
-sbplt_adj_args = dict(left=0.06,bottom=0.06,right=0.85,top=0.9,wspace=0.03,hspace=0.40)
-last_throw_label = r'$t$'
-before_last_throw_label = r'$t_{-1}$'
-fig, axar = plt.subplots(int(np.sqrt(N_vars)), int(N_vars/int(np.sqrt(N_vars))), figsize=(11,9),sharex=True,sharey=True)
-axar = np.asarray(axar)
-#fig.tight_layout()
-fig.suptitle('Doubt', fontsize=16)
-plt.subplots_adjust(**sbplt_adj_args)
-images = []
-for i in range(N_vars):
-    ax = axar.flatten()[i]
-    images.append(ax.imshow(PD_N[i,:,:].round(1), origin='lower'))
-    ax.set_xlabel(last_throw_label)
-    ax.set_ylabel(before_last_throw_label)
-    ax.set_title(f'{player_counts[i]} players')
-    #cbar = fig.colorbar(img)
-    #cbar.ax.set_ylabel('Should doubt')
-cbar = fig.colorbar(images[0], ax=axar.ravel().tolist(), shrink=0.95)
-cbar.set_ticks([0, 1])
-cbar.set_ticklabels(['Throw', 'Doubt'])
+def generate_plot_grid(data, title, x_label=r'$t_{-1}$', y_label=r'$t$', normalize=False):
+    fig, ax_array = plt.subplots(nrows=int(np.sqrt(n_plots)), ncols=math.ceil(n_plots / int(np.sqrt(n_plots))),
+                                 sharex=True, sharey=True, figsize=(11, 9))
+    ax_array = np.asarray(ax_array)
+    fig.tight_layout()
+    fig.suptitle(title, fontsize=16)
+    plt.subplots_adjust(**subplot_adjustments)
+    images = []
+    for i_plot, n in enumerate(player_counts):
+        ax = ax_array.flatten()[i_plot]
+        images.append(ax.imshow(data[i_plot, :, :].round(2), origin='lower', aspect='equal', cmap='GnBu'))
+        ax.set_ylabel(y_label)
+        ax.set_xlabel(x_label)
+        ax.set_title(f'{n} players')
+    color_bar = fig.colorbar(images[0], ax=ax_array.ravel().tolist(), shrink=0.95)
+    if normalize:
+        vmin = min(image.get_array().min() for image in images)
+        vmax = max(image.get_array().max() for image in images)
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        for im in images:
+            im.set_norm(norm)
+    return fig, color_bar
 
-fig2, axar2 = plt.subplots(int(np.sqrt(N_vars)), int(N_vars/int(np.sqrt(N_vars))), figsize=(11,9),sharex=True,sharey=True)
-plt.subplots_adjust(**sbplt_adj_args)
-fig2.suptitle('Lie', fontsize=16)
-for i in range(N_vars):
-    ax = axar2.flatten()[i]
-    img = ax.imshow(PL_N[i,:,:], origin='lower')
-    ax.set_ylabel(last_throw_label)
-    ax.set_xlabel(before_last_throw_label)
-    ax.set_title(f'{player_counts[i]} players')
-cbar = fig2.colorbar(img, ax=axar2.ravel().tolist(), shrink=0.95)
-cbar.set_ticks([0, 1])
-cbar.set_ticklabels(['dont claim', 'claim'])
 
-fig3, axar3 = plt.subplots(int(np.sqrt(N_vars)), int(N_vars/int(np.sqrt(N_vars))), figsize=(11,9),sharex=True,sharey=True)
-plt.subplots_adjust(**sbplt_adj_args)
-fig3.suptitle('Expected profit from doubting', fontsize=16)
-images = []
-for i in range(N_vars):
-    ax = axar3.flatten()[i]
-    images.append(ax.imshow(mu_N[i,:,:]/player_counts[i], origin='lower', cmap='RdYlGn', vmin=-1, vmax=1))
-    ax.set_ylabel(last_throw_label)
-    ax.set_xlabel(before_last_throw_label)
-    ax.set_title(f'{player_counts[i]} players')
-cbar = fig3.colorbar(images[0], ax=axar3.ravel().tolist(), shrink=0.95)
-vmin = min(image.get_array().min() for image in images)
-vmax = max(image.get_array().max() for image in images)
-norm = colors.Normalize(vmin=vmin, vmax=vmax)
-for im in images:
-    im.set_norm(norm)
-def update(changed_image):
-    for im in images:
-        if (changed_image.get_cmap() != im.get_cmap()
-                or changed_image.get_clim() != im.get_clim()):
-            im.set_cmap(changed_image.get_cmap())
-            im.set_clim(changed_image.get_clim())
-for im in images:
-    im.callbacksSM.connect('changed', update)
-plt.show()
+def plot_do_doubt():
+    do_doubt_array = np.zeros((n_plots, L, L))
+    for i_plot, n in enumerate(player_counts):
+        for claim_m2 in range(L):
+            for claim_m1 in range(L):
+                do_doubt_array[i_plot, claim_m1, claim_m2] = do_doubt(n, claim_m2, claim_m1, rounds_remaining)
+    fig_doubt, color_bar_doubt = generate_plot_grid(do_doubt_array, title=f'Doubt: {rounds_remaining} rounds remaining')
+    color_bar_doubt.set_ticks([0, 1])
+    color_bar_doubt.set_ticklabels(['Throw', 'Doubt'])
+
+
+def plot_mu():
+    players_until_me = 0
+    mu_array = -np.ones((n_plots, L, L))
+    for i_plot, n in enumerate(player_counts):
+        for claim_m2 in range(L):
+            for claim_m1 in V[claim_m2 + 1:]:
+                mu_array[i_plot, claim_m1, claim_m2] = mu(n, claim_m2, claim_m1, players_until_me, rounds_remaining)
+
+    fig_mu, color_bar_mu = generate_plot_grid(
+        mu_array, title=f'Mu: {rounds_remaining} rounds remaining, {players_until_me} players until me', normalize=True)
+
+
+if __name__ == '__main__':
+    subplot_adjustments = dict(left=0.06, bottom=0.06, right=0.85, top=0.9, wspace=0.03, hspace=0.40)
+    rounds_remaining = 0
+    player_counts = [2, 3, 4, 5]
+    n_plots = len(player_counts)
+
+    plot_mu()
