@@ -38,16 +38,20 @@ def mu_throw(n: int, last_claim: int, players_until_me: int, rounds_remaining: i
     """ Expected outcome for me, if the acting player throws. """
     loss_21 = -1. if players_until_me == 0 else 1. / (n - 1)
 
-    _p_lie = p_has_to_lie(last_claim)
-    _mu_throw_v_thrower_perspective = mu_throw_v(n, last_claim, _p_lie, 0, rounds_remaining)
-    best_lie = _mu_throw_v_thrower_perspective.argmin()
-
     _p_lie = p_lie(n, last_claim)
     _mu_throw_v = mu_throw_v(n, last_claim, _p_lie, players_until_me, rounds_remaining)
+    _best_lie = best_lie(n, last_claim, rounds_remaining)
     for claim in V[:last_claim + 1]:
-        _mu_throw_v[claim] = _mu_throw_v[best_lie]
+        _mu_throw_v[claim] = _mu_throw_v[_best_lie]
 
     return P21 * loss_21 + P @ _mu_throw_v
+
+
+def best_lie(n, last_claim, rounds_remaining):
+    # TODO: sanity check
+    _p_lie = p_has_to_lie(last_claim)
+    _mu_throw_v_thrower_perspective = mu_throw_v(n, last_claim, _p_lie, 0, rounds_remaining)
+    return _mu_throw_v_thrower_perspective.argmin()
 
 
 def mu_throw_v(n: int, last_claim: int, _p_lie: float, players_until_me: int, rounds_remaining: int) -> np.ndarray:
@@ -94,9 +98,9 @@ def do_doubt(n: int, claim_m2: int, claim_m1: int, rounds_remaining: int) -> flo
     _mu_throw = 0
     if claim_m2 == claim_m1 == 0:
         # not allowed to doubt
-        _mu_doubt = 1
+        return 0.
     elif claim_m1 not in V[claim_m2 + 1:]:
-        _mu_doubt = -1
+        return 1.
     else:
         # assumption: always take the optimal action
         _mu_doubt = mu_doubt(n, claim_m2, 0, rounds_remaining)

@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import colors
 
 from constants import L, V
-from meyer_optimizer import do_doubt, mu
+from meyer_optimizer import do_doubt, mu, best_lie
 
 
 def generate_plot_grid(data, title, x_label=r'$t_{-1}$', y_label=r'$t$', normalize=False):
@@ -43,6 +43,19 @@ def plot_do_doubt():
     color_bar_doubt.set_ticklabels(['Throw', 'Doubt'])
 
 
+def plot_best_lie():
+    best_lie_array = np.zeros((n_plots, L, L))
+    for i_plot, n in enumerate(player_counts):
+        for claim_m2 in range(L):
+            for claim_m1 in range(L):
+                if best_lie(n, claim_m2, rounds_remaining) == claim_m1:
+                    best_lie_array[i_plot, claim_m1, claim_m2] = 1
+    fig_doubt, color_bar_doubt = generate_plot_grid(best_lie_array,
+                                                    title=f'Best Lie: {rounds_remaining} rounds remaining')
+    color_bar_doubt.set_ticks([0, 1])
+    color_bar_doubt.set_ticklabels(['', 'Best Lie'])
+
+
 def plot_mu():
     players_until_me = 0
     mu_array = -np.ones((n_plots, L, L))
@@ -61,5 +74,6 @@ if __name__ == '__main__':
     player_counts = [2, 4, 8, 100]
     n_plots = len(player_counts)
 
+    plot_best_lie()
     plot_mu()
     plot_do_doubt()

@@ -15,8 +15,7 @@ class TestOptimizer(ExtendedTestCase):
         ev00 = {2: [-0.1649464572668927, 0.1649464572668927],
                 3: [-0.26564621360387985, 0.1743969889897541, 0.0912492246141258],
                 4: [-0.28905977587319165, 0.20589396975980648, 0.15885848052258486, -0.07569267440919969],
-                5: [-0.25121673472441375, 0.23630060628840122, 0.19496161537897222, -0.02473356843201476,
-                    -0.15531191851094497]}
+                5: [-0.251216734, 0.23630060628, 0.194961615379, -0.024733568, -0.1553119185]}
         for n in range(2, max(ev00.keys())):
             all_ev = [mu(n, 0, 0, p, 0) for p in range(n)]
             self.assertAlmostEqual(0, sum(all_ev))
@@ -25,7 +24,7 @@ class TestOptimizer(ExtendedTestCase):
     def test_mu_extensively(self):
         for n in range(2, N_MAX):
             for rounds in range(ROUNDS_MAX):
-                for claim_m2 in V[::-1]:
+                for claim_m2 in V:
                     for claim_m1 in V[claim_m2 + 1:]:
                         all_ev = [mu(n, claim_m2, claim_m1, p, rounds) for p in range(n)]
                         self.assertAlmostEqual(0, sum(all_ev),

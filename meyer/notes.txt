@@ -1,0 +1,9 @@
+correct, extend, simplify
+keep track of assumptions
+
+""""
+valid_throws = [31, 32, 41, 42, 43, 51, 52, 53, 54, 61, 62, 63, 64, 65, 101, 102, 103, 104, 105, 106]
+15 mit zwei verschiedenen Zahlen. Zwei bestimmte verschiedene Zahlen haben die Wahrscheinlichkeit 2/6 * 1/6 = 2/36.
+Ein Pasch hat die Wahrscheinlichkeit 1/6 * 1/6 = 1/36.
+Die Summe der Wahrscheinlichkeiten ergibt: 15 * 2/36 + 6 * 1/36 = 30/36 + 6/36 = 1.
+"""
