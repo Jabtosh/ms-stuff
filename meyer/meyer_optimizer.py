@@ -1,6 +1,7 @@
 import numpy as np
 
 from constants import P21, V, P, Q
+from meyer import AiBase
 
 
 def cache_results(func):
@@ -135,3 +136,28 @@ def mu(n: int, claim_m2: int, claim_m1: int, players_until_me: int, rounds_remai
 
 class RuleException(Exception):
     pass
+
+
+""" --------------------------------------------- AI Class ---------------------------------------------------- """
+
+
+class OptAI(AiBase):
+    # Cutoff, because the max recursion depth will be reached at some number of rounds remaining
+    RR_LIMIT = 100
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def get_name(self) -> str:
+        return self.name
+
+    def doubt_decider(self, claims: tuple, n_players: int, n_rounds_remaining: int) -> bool:
+        n_rounds_remaining = n_rounds_remaining if n_rounds_remaining < self.RR_LIMIT else self.RR_LIMIT
+        claim_m2 = claims[-2] if len(claims) > 1 else 0
+        return do_doubt(n_players, claim_m2, claims[-1], n_rounds_remaining) > .5
+
+    def claim_decider(self, claims: tuple, last_throw: int, n_players: int, n_rounds_remaining: int) -> int:
+        n_rounds_remaining = n_rounds_remaining if n_rounds_remaining < self.RR_LIMIT else self.RR_LIMIT
+        if not claims or last_throw > claims[-1]:
+            return last_throw
+        return best_lie(n_players, claims[-1], n_rounds_remaining)

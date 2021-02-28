@@ -20,7 +20,7 @@ class DummyAI(AiBase):
         else:
             return False
 
-    def claim_decider(self, claims: tuple, last_throw: int) -> int:
+    def claim_decider(self, claims: tuple, last_throw: int, n_players: int, n_rounds_remaining: int) -> int:
         if not claims:
             return last_throw
         if last_throw > claims[-1]:
@@ -48,7 +48,7 @@ class TestAI(AiBase):
         else:
             return False
 
-    def claim_decider(self, claims: tuple, last_throw: int) -> int:
+    def claim_decider(self, claims: tuple, last_throw: int, n_players: int, n_rounds_remaining: int) -> int:
         if not claims:
             return last_throw
         if last_throw > claims[-1]:
@@ -69,8 +69,7 @@ class ThowaAI(AiBase):
     def get_name(self):
         return self.name
 
-    @classmethod
-    def doubt_decider(cls, claims, n_players, n_rounds_remaining):
+    def doubt_decider(self, claims, n_players, n_rounds_remaining):
         if not claims:
             return False
         elif claims[-1] not in V or claims[-1] == V[-1]:
@@ -78,14 +77,13 @@ class ThowaAI(AiBase):
         else:
             return False
 
-    @classmethod
-    def claim_decider(cls, claims, last_throw):
+    def claim_decider(self, claims: tuple, last_throw: int, n_players: int, n_rounds_remaining: int) -> int:
         if not claims:
             return last_throw
         if last_throw > claims[-1]:  # only bluff, if necessary
             return last_throw
         else:
-            return cls.basic_bluff(claims)
+            return self.basic_bluff(claims)
 
     @staticmethod
     def basic_bluff(claims):

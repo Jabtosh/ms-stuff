@@ -1,5 +1,6 @@
 from basic_ais import DummyAI, TestAI, ThowaAI
 from meyer import Game
+from meyer_optimizer import OptAI
 
 
 def play_game(ais, n_rounds):
@@ -9,12 +10,14 @@ def play_game(ais, n_rounds):
     points = new_game.points
     print(points / sum(points))
     print(f'Winner: {new_game.get_winner()}')
+    print(f'----------------')
 
 
 dummyAI = DummyAI('Dummy')
 testAI = TestAI('Test')
 thowaAI = ThowaAI('Thowa')
+optAI = OptAI('Opto')
 
+play_game([optAI, testAI], 100000)
 play_game([dummyAI, testAI], 100000)
-play_game([dummyAI, thowaAI], 100000)
 play_game([thowaAI, testAI], 100000)
