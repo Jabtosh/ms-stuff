@@ -143,15 +143,15 @@ class RuleException(Exception):
 
 class OptAI(AiBase):
     # Cutoff, because the max recursion depth will be reached at some number of rounds remaining
-    RR_LIMIT = 100
+    RR_CUTOFF = 100
 
     def doubt_decider(self, claims: tuple, n_players: int, n_rounds_remaining: int) -> bool:
-        n_rounds_remaining = n_rounds_remaining if n_rounds_remaining < self.RR_LIMIT else self.RR_LIMIT
+        n_rounds_remaining = n_rounds_remaining if n_rounds_remaining < self.RR_CUTOFF else self.RR_CUTOFF
         claim_m2 = claims[-2] if len(claims) > 1 else 0
         return do_doubt(n_players, claim_m2, claims[-1], n_rounds_remaining) > .5
 
     def claim_decider(self, claims: tuple, last_throw: int, n_players: int, n_rounds_remaining: int) -> int:
-        n_rounds_remaining = n_rounds_remaining if n_rounds_remaining < self.RR_LIMIT else self.RR_LIMIT
+        n_rounds_remaining = n_rounds_remaining if n_rounds_remaining < self.RR_CUTOFF else self.RR_CUTOFF
         if not claims or last_throw > claims[-1]:
             return last_throw
         return best_lie(n_players, claims[-1], n_rounds_remaining)
