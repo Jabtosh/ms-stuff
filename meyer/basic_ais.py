@@ -1,16 +1,13 @@
 """ ---------------------------------------- Basic AIs --------------------------------------------------------- """
+
+import numpy as np
 import numpy.random as ran
 
-from constants import V
+from constants import V, Q, P21
 from meyer import AiBase
 
 
-class DummyAI(AiBase):
-    def __init__(self, name: str):
-        self.name = name
-
-    def get_name(self) -> str:
-        return self.name
+class MinimalAi(AiBase):
 
     def doubt_decider(self, claims: tuple, n_players: int, n_rounds_remaining: int) -> bool:
         if not claims:
@@ -21,22 +18,13 @@ class DummyAI(AiBase):
             return False
 
     def claim_decider(self, claims: tuple, last_throw: int, n_players: int, n_rounds_remaining: int) -> int:
-        if not claims:
+        if not claims or last_throw > claims[-1]:
             return last_throw
-        if last_throw > claims[-1]:
-            return last_throw
-        elif claims[-1] == V[-1]:
-            return claims[-1]
         else:
             return claims[-1] + 1
 
 
-class TestAI(AiBase):
-    def __init__(self, name: str):
-        self.name = name
-
-    def get_name(self) -> str:
-        return self.name
+class CounterMinimalAi(AiBase):
 
     def doubt_decider(self, claims: tuple, n_players: int, n_rounds_remaining: int) -> bool:
         if not claims:
@@ -59,15 +47,33 @@ class TestAI(AiBase):
             return claims[-1] + 1
 
 
+class SimpleAi(AiBase):
+
+    def doubt_decider(self, claims: tuple, n_players: int, n_rounds_remaining: int) -> bool:
+        if not claims:
+            return False
+        elif len(claims) == 1:
+            return False
+        elif (claims[-1] >= 16) or (claims[-1] not in V) or (claims[-1] == claims[-2] + 1):
+            return True
+        else:
+            return False
+
+    def claim_decider(self, claims: tuple, last_throw: int, n_players: int, n_rounds_remaining: int) -> int:
+        if not claims or last_throw > claims[-1]:
+            return last_throw
+        elif claims[-1] == V[-1]:
+            return V[-1]
+        else:
+            last_claim = claims[-1]
+            p_above = (Q[V > last_claim - 1] - Q[last_claim]) / (1 - Q[last_claim] - P21)
+            return last_claim + np.where(p_above > ran.random())[0][0]
+
+
 """ -------------------------------------------- Thowa AI ------------------------------------------------------ """
 
 
-class ThowaAI(AiBase):
-    def __init__(self, name):
-        self.name = name
-
-    def get_name(self):
-        return self.name
+class ThowaAi(AiBase):
 
     def doubt_decider(self, claims, n_players, n_rounds_remaining):
         if not claims:

@@ -7,9 +7,11 @@ from constants import RNG_MAP
 
 
 class AiBase(metaclass=ABCMeta):
-    @abstractmethod
+    def __init__(self, name: str):
+        self.name = name
+
     def get_name(self) -> str:
-        ...
+        return self.name
 
     @abstractmethod
     def doubt_decider(self, claims: tuple, n_players: int, n_rounds_remaining: int) -> bool:

@@ -1,4 +1,4 @@
-from basic_ais import DummyAI, TestAI, ThowaAI
+from basic_ais import MinimalAi, CounterMinimalAi, ThowaAi, SimpleAi
 from meyer import Game
 from meyer_optimizer import OptAI
 
@@ -13,11 +13,15 @@ def play_game(ais, n_rounds):
     print(f'----------------')
 
 
-dummyAI = DummyAI('Dummy')
-testAI = TestAI('Test')
-thowaAI = ThowaAI('Thowa')
-optAI = OptAI('Opto')
+dummy_ai = MinimalAi('Dummy')
+counter_ai = CounterMinimalAi('Test')
+thowa_ai = ThowaAi('Thowa')
+opt_ai = OptAI('Opto')
+simple_ai = SimpleAi('Basic')
 
-play_game([optAI, testAI], 100000)
-play_game([dummyAI, testAI], 100000)
-play_game([thowaAI, testAI], 100000)
+N = 50000
+
+play_game([counter_ai, simple_ai], N)
+play_game([opt_ai, simple_ai], N)
+play_game([dummy_ai, simple_ai], N)
+play_game([thowa_ai, simple_ai], N)

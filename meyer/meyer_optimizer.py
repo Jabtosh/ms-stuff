@@ -145,12 +145,6 @@ class OptAI(AiBase):
     # Cutoff, because the max recursion depth will be reached at some number of rounds remaining
     RR_LIMIT = 100
 
-    def __init__(self, name: str):
-        self.name = name
-
-    def get_name(self) -> str:
-        return self.name
-
     def doubt_decider(self, claims: tuple, n_players: int, n_rounds_remaining: int) -> bool:
         n_rounds_remaining = n_rounds_remaining if n_rounds_remaining < self.RR_LIMIT else self.RR_LIMIT
         claim_m2 = claims[-2] if len(claims) > 1 else 0
