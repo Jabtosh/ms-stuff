@@ -1,5 +1,5 @@
 from basic_ais import MinimalAi, CounterMinimalAi, ThowaAi, SimpleAi
-from evoluionary_ais import EvoAi
+from evolutionary_arena import load_evo_ais
 from meyer import Game
 from meyer_optimizer import OptAI
 
@@ -19,12 +19,12 @@ counter_ai = CounterMinimalAi('Test')
 thowa_ai = ThowaAi('Thowa')
 opt_ai = OptAI('Opto')
 simple_ai = SimpleAi('Basic')
-evo1 = EvoAi()
-evo2 = EvoAi()
+evo_ais = load_evo_ais()
 
 N = 50000
 
-play_game([evo1, evo2], N)
+play_game([evo_ais[0], evo_ais[1]], N)
+play_game([opt_ai, evo_ais[2]], N)
 play_game([counter_ai, simple_ai], N)
 play_game([opt_ai, simple_ai], N)
 play_game([dummy_ai, simple_ai], N)
