@@ -23,18 +23,17 @@ class EvoAi(AiBase):
         return f"{self.name}: {self.doubt_array.get_identifier():.2f}, {self.lie_array.get_identifier():.2f}"
 
     @classmethod
-    def init_from_list(cls, array_list: [("DoubtArray", "LieArray")]):
-        return [cls(ars[0], ars[1]) for ars in array_list]
+    def init_from_data(cls, doubt_array: np.ndarray, lie_array: np.ndarray) -> "EvoAi":
+        return cls(DoubtArray.import_(doubt_array), LieArray.import_(lie_array))
 
-    def export_arrays(self):
-        return self.doubt_array, self.lie_array
+    def export_data(self):
+        return self.doubt_array.export_(), self.lie_array.export_()
 
     def doubt_decider(self, claims: tuple, n_players: int, n_rounds_remaining: int) -> bool:
         n_rounds_remaining = n_rounds_remaining if n_rounds_remaining < self.RR_CUTOFF else self.RR_CUTOFF
-        n_players = n_players if n_players < self.NP_CUTOFF else self.NP_CUTOFF
-        claim_m2 = claims[-2]
-        claim_m1 = claims[-1]
-        return self.p_doubt(n_players - 2, claim_m2, claim_m1 - 1, n_rounds_remaining) >= self.throw_generator.__next__()
+        n_players_s = n_players - 2 if n_players < self.NP_CUTOFF else self.NP_CUTOFF - 2
+        claim_m1_s = claims[-1] - 1
+        return self.p_doubt(n_players_s, claims[-2], claim_m1_s, n_rounds_remaining) >= self.throw_generator.__next__()
 
     def claim_decider(self, claims: tuple, last_throw: int, n_players: int, n_rounds_remaining: int) -> int:
         n_rounds_remaining = n_rounds_remaining if n_rounds_remaining < self.RR_CUTOFF else self.RR_CUTOFF
@@ -59,7 +58,6 @@ class EvoAi(AiBase):
     def reproduce(self, other: "EvoAi"):
         new_doubt_array = self.doubt_array.reproduce(other.doubt_array)
         new_lie_array = self.lie_array.reproduce(other.lie_array)
-        new_lie_array.make_compliant()
         return EvoAi(doubt_array=new_doubt_array, lie_array=new_lie_array)
 
     @staticmethod
@@ -84,19 +82,23 @@ class EvoArray(np.ndarray):
     SHAPE = (R, P, L - 1, L - 1)
     LEN = R * P * (L - 1) * (L - 1)
     STRIDES = (P * (L - 1) * (L - 1), (L - 1) * (L - 1), L - 1, 1)
-    UPPER_DIAGONAL_INDEX = np.array(list(filter(lambda x: (x % (L - 1) > (x // (L - 1)) % (L - 1)), range(LEN))))
+    INDEX_DATA = np.array(list(filter(lambda x: (x % (L - 1) <= (x // (L - 1)) % (L - 1)), range(LEN))))
+    INDEX_REDUNDANT = np.array(list(filter(lambda x: (x % (L - 1) > (x // (L - 1)) % (L - 1)), range(LEN))))
 
     M_RATE = .05
-    M_SCALE = .08
+    M_SCALE = .095
 
-    def __new__(cls, *args, **kwargs):
-        return np.ndarray.__new__(cls, cls.SHAPE, buffer=ran.random(size=cls.SHAPE))
+    def __new__(cls, *_, **__):
+        """ Initialized with random single precision floating numbers. """
+        # TODO: convert existing data to single and adapt __new__
+        return np.ndarray.__new__(cls, cls.SHAPE, buffer=ran.random(size=cls.SHAPE))  # .astype(np.single)
 
     def mutate(self):
+        # TODO: act on flat array and cut out compliance check
         mutate = ran.random(size=EvoArray.SHAPE)
         self[mutate < self.M_RATE] += ran.normal(scale=self.M_SCALE, size=self[mutate < self.M_RATE].shape)
 
-    def reproduce(self, other):
+    def reproduce(self, other: "EvoArray") -> "EvoArray":
         decider = ran.randint(0, 2)
         new = self.copy()
         new[decider] = other[decider]
@@ -105,19 +107,31 @@ class EvoArray(np.ndarray):
     def get_identifier(self) -> float:
         return np.linalg.norm(self) + np.linalg.norm(self[self < .2]) * 10 - np.linalg.norm(self[self > .75])
 
+    def export_(self) -> np.ndarray:
+        return self.flat[self.INDEX_DATA].copy()
+
+    @classmethod
+    def import_(cls, data: np.ndarray) -> "EvoArray":
+        new = cls(shape=(0,))
+        new.flat[cls.INDEX_DATA] = data
+        new.make_compliant()
+        return new
+
+    def make_compliant(self):
+        self.clip(0., 1., out=self)
+
 
 class DoubtArray(EvoArray):
 
     def make_compliant(self):
-        self.put(self.UPPER_DIAGONAL_INDEX, 1)
-        self.clip(-.1, 1.1, out=self)
+        self.put(self.INDEX_REDUNDANT, 1.)
+        super(DoubtArray, self).make_compliant()
 
 
 class LieArray(EvoArray):
-    # np.random.permutation(24).reshape(2, 4, 3)
 
     def make_compliant(self):
-        self.put(self.UPPER_DIAGONAL_INDEX, 0)
-        self.clip(-.1, 1.1, out=self)
+        self.put(self.INDEX_REDUNDANT, 0.)
+        super(LieArray, self).make_compliant()
         # normalize, such that .sum(axis=3) == 1
         self /= self.sum(axis=3)[:, :, :, np.newaxis]

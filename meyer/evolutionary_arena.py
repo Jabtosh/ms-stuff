@@ -48,7 +48,7 @@ def evolve(start_ais, n_rounds=80, battles=5, generations=1, required_win_rate=.
     return survivors
 
 
-def head_to_head(evo1: [EvoAi], evo2: [EvoAi], n_rounds=80, battles=5):
+def head_to_head(evo1: [EvoAi], evo2: [EvoAi], n_players=2, n_rounds=80, battles=5):
     if not len(evo1) == len(evo2):
         raise IndexError("Lists must have the same length.")
     for i in range(len(evo1)):
@@ -63,15 +63,18 @@ def head_to_head(evo1: [EvoAi], evo2: [EvoAi], n_rounds=80, battles=5):
     return wins1/(wins1 + wins2)
 
 
+filename = "evo_data.pickle"
+
+
 def load_evo_ais():
-    with open("survivors1.pickle", "rb") as file:
-        array_list = pickle.load(file)
-    return EvoAi.init_from_list(array_list)
+    with open(filename, "rb") as file:
+        data_list = pickle.load(file)
+    return [EvoAi.init_from_data(*data) for data in data_list]
 
 
 def save_evo_ais(ai_list):
-    with open("survivors1.pickle", "wb") as file:
-        pickle.dump([(ai.doubt_array, ai.lie_array) for ai in ai_list], file)
+    with open(filename, "wb") as file:
+        pickle.dump([ai.export_data() for ai in ai_list], file)
 
 
 if __name__ == '__main__':
@@ -82,7 +85,7 @@ if __name__ == '__main__':
         initial_ais = [EvoAi() for _ in range(500)]
     survivor_list = initial_ais.copy()
 
-    survivor_list = evolve(survivor_list, n_rounds=90, battles=12, generations=12, required_win_rate=.24)
+    survivor_list = evolve(survivor_list, n_rounds=80, battles=10, generations=8, required_win_rate=.22)
 
     win_rate = head_to_head(survivor_list, initial_ais, n_rounds=60)
     print(win_rate)

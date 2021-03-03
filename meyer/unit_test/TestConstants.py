@@ -11,6 +11,6 @@ class TestConstants(TestCase):
         self.assertEqual(len(V), len(Q))
         self.assertEqual(len(V), len(P))
         self.assertEqual(len(V), L)
-        self.assertEqual(len(V), len(THROW_LABEL_MAP))
+        self.assertEqual(len(V) + 1, len(THROW_LABEL_MAP))
         for p, q in zip(P.cumsum(), Q):
             self.assertAlmostEqual(p, q)

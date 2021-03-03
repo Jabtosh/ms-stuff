@@ -31,9 +31,9 @@ class Game:
         self.n_rounds_remaining = n_rounds - 1
         self.terminal_output = terminal_output
         self.n_players = len(ais)
+        self.ais = ais
         self.doubt_deciders = tuple(ais[i].doubt_decider for i in range(self.n_players))
         self.claim_deciders = tuple(ais[i].claim_decider for i in range(self.n_players))
-        self.ais = ais
         self.points = np.zeros(self.n_players)
         self.meyer_count = np.zeros(self.n_players)
         self.throw_generator = self.generate_throws(self.n_players * self.n_rounds_remaining)
@@ -55,17 +55,15 @@ class Game:
 
     def throw(self):
         self.last_throw = self.throw_generator.__next__()
-        if self.is_meyer():
+        if self.last_throw == 21:
+            self.meyer_count[self.player_index] += 1
             self.points += 1
             self.points[self.player_index] -= 1
-            self.meyer_count[self.player_index] += 1
             self.prepare_new_round()
         else:
             new_claim = self.claim_deciders[self.player_index](self.claims, self.last_throw, self.n_players,
                                                                self.n_rounds_remaining)
             self.claims = (*self.claims, new_claim)
-            self.print_out(f'roll {len(self.claims)}: player {self.player_index} '
-                           f'rolled {self.last_throw} and claimed {self.claims[-1]}')
             self.next_player()
 
     def doubt(self):
@@ -100,12 +98,6 @@ class Game:
             throw_indices = ran.randint(36, size=size)
             for throw_index in throw_indices:
                 yield RNG_MAP[throw_index]
-
-    def is_meyer(self) -> bool:
-        if self.last_throw == 21:
-            return True
-        else:
-            return False
 
     def print_out(self, text):
         if self.terminal_output:
