@@ -107,7 +107,7 @@ if __name__ == '__main__':
         initial_ais = [EvoAi() for _ in range(1000)]
     survivor_list = [ai.copy() for ai in initial_ais]
 
-    survivor_list = evolve(survivor_list, generations=8, n_rounds=42, battles=12, required_wins=4)
+    survivor_list = evolve(survivor_list, generations=200, n_rounds=42, battles=12, required_wins=4)
 
     win_rate = head_to_head(survivor_list, initial_ais, n_rounds=50, battles=8)
     print(win_rate)
