@@ -32,24 +32,13 @@ def generate_plot_grid(data, title, x_label=r'$t_{-1}$', y_label=r'$t$', normali
     return fig, color_bar
 
 
-def plot_do_doubt():
-    do_doubt_array = np.zeros((n_plots, L, L))
-    for i_plot, n in enumerate(player_counts):
-        for claim_m2 in range(L):
-            for claim_m1 in range(L):
-                do_doubt_array[i_plot, claim_m1, claim_m2] = do_doubt(n, claim_m2, claim_m1, rounds_remaining)
+def plot_do_doubt(do_doubt_array):
     fig_doubt, color_bar_doubt = generate_plot_grid(do_doubt_array, title=f'Doubt: {rounds_remaining} rounds remaining')
     color_bar_doubt.set_ticks([0, 1])
     color_bar_doubt.set_ticklabels(['Throw', 'Doubt'])
 
 
-def plot_best_lie():
-    best_lie_array = np.zeros((n_plots, L, L))
-    for i_plot, n in enumerate(player_counts):
-        for claim_m2 in range(L):
-            for claim_m1 in range(L):
-                if best_lie(n, claim_m2, rounds_remaining) == claim_m1:
-                    best_lie_array[i_plot, claim_m1, claim_m2] = 1
+def plot_best_lie(best_lie_array):
     fig_doubt, color_bar_doubt = generate_plot_grid(best_lie_array,
                                                     title=f'Best Lie: {rounds_remaining} rounds remaining')
     color_bar_doubt.set_ticks([0, 1])
@@ -64,7 +53,7 @@ def plot_mu():
             for claim_m1 in V[claim_m2 + 1:]:
                 mu_array[i_plot, claim_m1, claim_m2] = mu(n, claim_m2, claim_m1, players_until_me, rounds_remaining)
 
-    fig_mu, color_bar_mu = generate_plot_grid(
+    generate_plot_grid(
         mu_array, title=f'Mu: {rounds_remaining} rounds remaining, {players_until_me} players until me', normalize=True)
 
 
@@ -74,6 +63,17 @@ if __name__ == '__main__':
     player_counts = [2, 4, 8, 100]
     n_plots = len(player_counts)
 
-    plot_best_lie()
+    do_doubt_array = np.zeros((n_plots, L, L))
+    for i_plot, n in enumerate(player_counts):
+        for claim_m2 in range(L):
+            for claim_m1 in range(L):
+                do_doubt_array[i_plot, claim_m1, claim_m2] = do_doubt(n, claim_m2, claim_m1, rounds_remaining)
+    best_lie_array = np.zeros((n_plots, L, L))
+    for i_plot, n in enumerate(player_counts):
+        for claim_m2 in range(L):
+            for claim_m1 in range(L):
+                if best_lie(n, claim_m2, rounds_remaining) == claim_m1:
+                    best_lie_array[i_plot, claim_m1, claim_m2] = 1
+    plot_best_lie(best_lie_array)
     plot_mu()
-    plot_do_doubt()
+    plot_do_doubt(do_doubt_array)

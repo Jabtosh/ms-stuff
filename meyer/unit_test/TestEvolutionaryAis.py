@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from evoluionary_ais import LieArray, DoubtArray
+from evolutionary_ais import LieArray, DoubtArray
 
 
 # np.random.permutation(24).reshape(2, 4, 3)
