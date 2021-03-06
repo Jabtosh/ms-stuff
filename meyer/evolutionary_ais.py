@@ -184,3 +184,10 @@ class LieArray(EvoArray):
     def normalize(self):
         """ Normalize, such that .sum(axis=3) == 1 """
         self /= self.sum(axis=3)[:, :, :, np.newaxis]
+
+    def reproduce(self, other: "LieArray") -> "LieArray":
+        decider = ran.randint(0, 2)
+        new = self.copy()
+        new[decider] = other[decider]
+        new.normalize()
+        return new
