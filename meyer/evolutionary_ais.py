@@ -122,13 +122,11 @@ class EvoArray(np.ndarray):
     # axis 3 = M2
     SHAPE = (R, P, L - 1, L - 1)
     LEN = reduce(imul, SHAPE)
-    STRIDES = (P * (L - 1) * (L - 1), (L - 1) * (L - 1), L - 1, 1)
-    STRIDES2 = tuple(accumulate(chain([1], SHAPE[:0:-1]), imul))[::-1]
-    # STRIDES3 = tuple(accumulate(SHAPE[:0:-1], imul, initial=1))[::-1]
+    STRIDES = tuple(accumulate(chain([1], SHAPE[:0:-1]), imul))[::-1]
+    # python 3.9 probably: STRIDES = tuple(accumulate(SHAPE[:0:-1], imul, initial=1))[::-1]
     INDEX_DATA = np.array(list(filter(lambda x: (x % (L - 1) <= (x // (L - 1)) % (L - 1)), range(LEN))))
     INDEX_REDUNDANT = np.array(list(filter(lambda x: (x % (L - 1) > (x // (L - 1)) % (L - 1)), range(LEN))))
     M_RATE = .05
-    M_SCALE = .1
 
     def __new__(cls, *_, **__):
         """ Initialized with random single precision floating numbers. """
@@ -138,8 +136,8 @@ class EvoArray(np.ndarray):
         mutate = ran.random(len(self.INDEX_DATA))
         mutate[mutate > self.M_RATE] = 0.
         mutation_index = mutate.nonzero()[0]
-        mutate[mutation_index] = ran.normal(scale=self.M_SCALE, size=len(mutation_index))
-        self.flat[self.INDEX_DATA] += mutate
+        mutate = ran.random(len(mutation_index))
+        self.flat[self.INDEX_DATA[mutation_index]] = mutate
 
     def reproduce(self, other: "EvoArray") -> "EvoArray":
         decider = ran.randint(0, 2)
@@ -171,10 +169,6 @@ class DoubtArray(EvoArray):
         self.put(self.INDEX_REDUNDANT, 1.)
         super().make_compliant()
 
-    def mutate(self):
-        super().mutate()
-        super().make_compliant()
-
 
 class LieArray(EvoArray):
 
@@ -185,7 +179,6 @@ class LieArray(EvoArray):
 
     def mutate(self):
         super().mutate()
-        super().make_compliant()
         self.normalize()
 
     def normalize(self):
