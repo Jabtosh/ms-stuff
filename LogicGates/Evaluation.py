@@ -3,14 +3,13 @@ from copy import deepcopy
 from itertools import product, permutations
 from operator import attrgetter
 
-from LogicGates.Gates import Bit, Gate, Nand, And, Or, Xor
+from LogicGates.Gates import Bit, Gate, Nand, And, Or, Xor, Inv
 
 
 @contextmanager
 def fix_state(gates, state):
-    state_before = [None] * len(gates)
+    state_before = [gate.fixed_state for gate in gates]
     for n, gate in enumerate(gates):
-        state_before[n] = gate.fixed_state
         gate.fixed_state = state[n]
     yield
     for n, gate in enumerate(gates):
@@ -40,33 +39,95 @@ class Evaluator:
             gates |= gate.get_input_recursively()
         return sum(gate.cost for gate in gates)
 
+    def nand_count(self):
+        gates = set()
+        for gate in self._outputs:
+            gates |= gate.get_input_recursively()
+        return sum(isinstance(gate, Nand) for gate in gates)
+
 
 class Grouper(Evaluator):
-    gates: [Gate] = [Gate, Nand, And, Or, Xor]
+    gates: [Gate] = [Inv, Nand, And, Or, Xor]
     gates.sort(key=attrgetter("cost"))
 
-    def simplify(self):
-        # TODO
-        new_circuit = deepcopy(self._outputs)
-        for output in new_circuit:
-            self._apply_simplifications(output)
-        return new_circuit
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.new_circuit = deepcopy(self._outputs)
 
-    def _apply_simplifications(self, circuit_gate: Gate):
-        # TODO
+    def simplify(self):
+        for i in range(len(self.new_circuit)):
+            # substitutions strictly including self._outputs[i]
+            substitute_gate = self._find_substitute_gate(self.new_circuit[i])
+            while substitute_gate is not None:
+                self.new_circuit[i] = substitute_gate
+                substitute_gate = self._find_substitute_gate(self.new_circuit[i])
+
+            # recursive substitutions restricted to new_circuit[i].inputs
+            evaluator = Evaluator(self._roots, self.new_circuit[i].inputs)
+            substitute_inputs = Grouper(self._roots, self.new_circuit[i].inputs).simplify()
+            substitute_evaluator = Evaluator(self._roots, substitute_inputs)
+            if substitute_evaluator.costs() < evaluator.costs() \
+                    or substitute_evaluator.nand_count() < evaluator.nand_count():
+                self.new_circuit[i].inputs = substitute_inputs
+        return self.new_circuit
+
+    def _find_substitute_gate(self, circuit_gate: Gate):
         for gate in self.gates:
-            costs = circuit_gate.cost
-            inputs = circuit_gate.inputs
-            if len(set(inputs)) == gate.expected_number_of_inputs and not isinstance(circuit_gate, gate):
-                for input_permutation in permutations(circuit_gate.inputs):
-                    for in_, out_ in gate.mapping:
-                        with fix_state(input_permutation, in_):
-                            if circuit_gate.state != out_:
-                                break
-                    else:
-                        return gate
-            while costs < gate.cost:
-                pass
+            sub_circuit_costs = circuit_gate.cost
+            _inputs = circuit_gate.inputs
+            unique_inputs = list(dict.fromkeys(_inputs))
+            skip_base_circuit = isinstance(circuit_gate, gate)
+            substitute_gate = self._find_substitution(gate, unique_inputs, sub_circuit_costs,
+                                                      skip_base_circuit=skip_base_circuit)
+            if substitute_gate is not None:
+                return substitute_gate
+        return None
+
+    def _find_substitution(self, gate, unique_inputs, sub_circuit_costs, skip_base_circuit=False):
+        if not skip_base_circuit and sub_circuit_costs >= gate.cost:
+            circuit_to_gate_mapping = self._get_input_mapping(gate, unique_inputs)
+            if circuit_to_gate_mapping is not None:
+                return gate(*[unique_inputs[index] for index in circuit_to_gate_mapping])
+        for expanded_input in [_input for _input in unique_inputs if _input.inputs]:
+            sub_circuit_costs += sum(c_gate.cost for c_gate in expanded_input.inputs)
+            if sub_circuit_costs >= gate.cost:
+                _inputs = [c_gate for c_gate in unique_inputs if c_gate is not expanded_input]
+                _inputs.extend(expanded_input.inputs)
+                _unique_inputs = list(dict.fromkeys(_inputs))
+                self._find_substitution(gate, _unique_inputs, sub_circuit_costs)
+                circuit_to_gate_mapping = self._get_input_mapping(gate, _unique_inputs)
+                if circuit_to_gate_mapping is not None:
+                    return gate(*[_unique_inputs[index] for index in circuit_to_gate_mapping])
+        return None
+
+    def _get_input_mapping(self, gate, unique_inputs) -> [int]:
+        """ Return the circuit to gate mapping [int]. E.g [2, 2, 1] implies gate(unique_inputs[2], u_i[2], u_i[1]). """
+        # for the gate to fit, sub-circuit inputs must be <= gate inputs
+        # as the gate should be optimal, sub-circuit costs must be >= gate costs
+        n_inputs = gate.expected_number_of_inputs()
+        if len(unique_inputs) <= n_inputs:
+            sub_circuit_mapping = self._get_sub_circuit_mapping(unique_inputs)
+            columns = list(range(len(unique_inputs))) * (1 + n_inputs - len(unique_inputs))
+            # TODO: cast permutations iterator to set?
+            for column_permutation in permutations(columns, n_inputs):
+                if self._permute_mapping(sub_circuit_mapping, column_permutation) == gate.mapping:
+                    return column_permutation
+        return None
+
+    def _get_sub_circuit_mapping(self, unique_inputs: [Gate]) -> {tuple: tuple}:
+        sub_circuit_mapping = {}
+        for input_state in product(self.states, repeat=len(unique_inputs)):
+            with fix_state(unique_inputs, input_state):
+                sub_circuit_mapping[input_state] = tuple(gate.state for gate in self.new_circuit)
+        return sub_circuit_mapping
+
+    @staticmethod
+    def _permute_mapping(sub_circuit_mapping: {tuple: tuple}, column_permutation: [int]):
+        """ Return new sub_circuit_mapping with permuted columns. Convention: if len(output)==1 it gets unpacked. """
+        return {
+            tuple(_in[index] for index in column_permutation): (_out[0] if len(_out) == 1 else _out)
+            for _in, _out in sub_circuit_mapping.items()
+        }
 
 
 def main():

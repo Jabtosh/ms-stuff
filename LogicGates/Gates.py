@@ -5,7 +5,7 @@ class Gate:
 
     def __init__(self, *inputs: 'Gate'):
         self.inputs = inputs
-        assert len(self.inputs) == self.expected_number_of_inputs
+        assert len(self.inputs) == self.expected_number_of_inputs()
 
     def __repr__(self):
         input_repr = ""
@@ -21,9 +21,9 @@ class Gate:
         return self.mapping[tuple(_input.state for _input in self.inputs)] if self.fixed_state is None \
             else self.fixed_state
 
-    @property
-    def expected_number_of_inputs(self):
-        return len(next(iter(self.mapping.keys()))) if self.mapping is not None else 0
+    @classmethod
+    def expected_number_of_inputs(cls):
+        return len(next(iter(cls.mapping.keys()))) if cls.mapping is not None else 0
 
     def get_input_recursively(self):
         return {self} | {gate for _input in self.inputs for gate in _input.get_input_recursively()}
@@ -46,6 +46,14 @@ class SymmetricGate(Gate):
         if key not in cls._instances:
             cls._instances[key] = cls(*inputs)
         return cls._instances[key]
+
+
+class Inv(SymmetricGate):
+    cost = 1
+    mapping = {
+        (0,): 1,
+        (1,): 0
+    }
 
 
 class Nand(SymmetricGate):
