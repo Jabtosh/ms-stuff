@@ -52,7 +52,7 @@ class Grouper(Evaluator):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.new_circuit = deepcopy(self._outputs)
+        self.new_circuit = list(deepcopy(self._outputs))
 
     def simplify(self):
         for i in range(len(self.new_circuit)):
@@ -73,31 +73,32 @@ class Grouper(Evaluator):
 
     def _find_substitute_gate(self, circuit_gate: Gate):
         for gate in self.gates:
-            sub_circuit_costs = circuit_gate.cost
             _inputs = circuit_gate.inputs
             unique_inputs = list(dict.fromkeys(_inputs))
             skip_base_circuit = isinstance(circuit_gate, gate)
-            substitute_gate = self._find_substitution(gate, unique_inputs, sub_circuit_costs,
+            substitute_gate = self._find_substitution(gate, unique_inputs, {circuit_gate},
                                                       skip_base_circuit=skip_base_circuit)
             if substitute_gate is not None:
                 return substitute_gate
         return None
 
-    def _find_substitution(self, gate, unique_inputs, sub_circuit_costs, skip_base_circuit=False):
-        if not skip_base_circuit and sub_circuit_costs >= gate.cost:
+    def _find_substitution(self, gate, unique_inputs: list, sub_circuit: set, skip_base_circuit=False):
+        if not skip_base_circuit and sum(c_gate.cost for c_gate in sub_circuit) == gate.cost:
             circuit_to_gate_mapping = self._get_input_mapping(gate, unique_inputs)
             if circuit_to_gate_mapping is not None:
                 return gate(*[unique_inputs[index] for index in circuit_to_gate_mapping])
+
         for expanded_input in [_input for _input in unique_inputs if _input.inputs]:
-            sub_circuit_costs += sum(c_gate.cost for c_gate in expanded_input.inputs)
-            if sub_circuit_costs >= gate.cost:
+            _sub_circuit = sub_circuit | {c_gate for c_gate in expanded_input.inputs}
+            if sum(c_gate.cost for c_gate in _sub_circuit) <= gate.cost:
                 _inputs = [c_gate for c_gate in unique_inputs if c_gate is not expanded_input]
                 _inputs.extend(expanded_input.inputs)
                 _unique_inputs = list(dict.fromkeys(_inputs))
-                self._find_substitution(gate, _unique_inputs, sub_circuit_costs)
-                circuit_to_gate_mapping = self._get_input_mapping(gate, _unique_inputs)
+
+                circuit_to_gate_mapping = self._find_substitution(gate, _unique_inputs, _sub_circuit)
                 if circuit_to_gate_mapping is not None:
                     return gate(*[_unique_inputs[index] for index in circuit_to_gate_mapping])
+
         return None
 
     def _get_input_mapping(self, gate, unique_inputs) -> [int]:
@@ -133,6 +134,13 @@ class Grouper(Evaluator):
 def main():
     roots = [Bit()]
     outputs = [Nand(roots[0], roots[0])]
+    print(outputs)
+    g = Grouper(roots, outputs)
+    print(g.simplify())
+
+    roots = [Bit(), Bit()]
+    _nand = Nand(roots[0], roots[1])
+    outputs = [Nand(_nand, _nand)]
     print(outputs)
     g = Grouper(roots, outputs)
     print(g.simplify())

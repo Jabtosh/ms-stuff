@@ -1,10 +1,9 @@
 from collections import namedtuple
-from itertools import permutations
+from itertools import permutations, product
 from operator import attrgetter
 
 from LogicGates.Evaluation import Evaluator
 from LogicGates.Gates import Bit, Nand
-
 
 Solution = namedtuple("Solution", ["output", "cost"])
 _solution_sep = ',\n'
@@ -30,19 +29,21 @@ class Solver:
 
     def solve(self):
         gates = [*self._roots]
+        new_gates = gates
         valid_solutions = []
         solution = self._check_gate_combinations_full(gates)
         if solution is not None:
             valid_solutions.append(solution)
         while not valid_solutions:
-            new_gates = (Nand.new_cached(in1, in2) for in1, in2 in {(in1_, in2_) for in1_ in gates for in2_ in gates})
+            # avoid redundancy, by only adding gates with at least one new gate as input (use nand symmetry)
+            new_gates = set(Nand.new_cached(in1, in2) for in1, in2 in product(new_gates, gates))
             valid_solutions = []
             for new_gate in new_gates:
                 if new_gate not in gates:
                     solution = self._check_gate_combinations(gates, new_gate)
-                    gates.append(new_gate)
                     if solution is not None:
                         valid_solutions.append(solution)
+            gates.extend(new_gates)
         self.solution = min(valid_solutions, key=attrgetter("cost"))
         print(self.solution)
 

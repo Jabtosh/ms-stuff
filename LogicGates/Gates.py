@@ -48,14 +48,6 @@ class SymmetricGate(Gate):
         return cls._instances[key]
 
 
-class Inv(SymmetricGate):
-    cost = 1
-    mapping = {
-        (0,): 1,
-        (1,): 0
-    }
-
-
 class Nand(SymmetricGate):
     cost = 1
     mapping = {
@@ -63,6 +55,14 @@ class Nand(SymmetricGate):
         (0, 1): 1,
         (1, 0): 1,
         (1, 1): 0
+    }
+
+
+class Inv(SymmetricGate):
+    cost = 1
+    mapping = {
+        (0,): 1,
+        (1,): 0
     }
 
 
