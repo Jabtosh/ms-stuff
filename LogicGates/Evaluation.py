@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from copy import deepcopy
 from itertools import product, permutations
 from operator import attrgetter
 
@@ -21,13 +20,13 @@ class Evaluator:
 
     def __init__(self, roots: [Bit], outputs: [Gate]):
         self._roots = roots
-        self._outputs = outputs
+        self.outputs = outputs
 
     def compare_with_mapping(self, expected_mapping):
         for state in product(self.states, repeat=len(self._roots)):
             with fix_state(self._roots, state):
                 _input = tuple(_root.state for _root in self._roots)
-                _output = tuple(gate.state for gate in self._outputs)
+                _output = tuple(gate.state for gate in self.outputs)
                 if expected_mapping[_input] != _output:
                     return False
 
@@ -35,69 +34,67 @@ class Evaluator:
 
     def costs(self):
         gates = set()
-        for gate in self._outputs:
+        for gate in self.outputs:
             gates |= gate.get_input_recursively()
         return sum(gate.cost for gate in gates)
 
     def nand_count(self):
         gates = set()
-        for gate in self._outputs:
+        for gate in self.outputs:
             gates |= gate.get_input_recursively()
         return sum(isinstance(gate, Nand) for gate in gates)
 
 
 class Grouper(Evaluator):
-    gates: [Gate] = [Inv, Nand, And, Or, Xor]
+    gates: [Gate] = [Inv, And, Or, Xor]
     gates.sort(key=attrgetter("cost"))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.new_circuit = list(deepcopy(self._outputs))
+        self._gate_to_replace = None
 
     def simplify(self):
-        for i in range(len(self.new_circuit)):
+        """ Substitute outputs list items in-place for one of cls.gates. """
+        for i in range(len(self.outputs)):
             # substitutions strictly including self._outputs[i]
-            substitute_gate = self._find_substitute_gate(self.new_circuit[i])
+            substitute_gate = self._find_substitute_gate(self.outputs[i])
             while substitute_gate is not None:
-                self.new_circuit[i] = substitute_gate
-                substitute_gate = self._find_substitute_gate(self.new_circuit[i])
+                self.outputs[i] = substitute_gate
+                substitute_gate = self._find_substitute_gate(self.outputs[i])
 
+        for i in range(len(self.outputs)):
             # recursive substitutions restricted to new_circuit[i].inputs
-            evaluator = Evaluator(self._roots, self.new_circuit[i].inputs)
-            substitute_inputs = Grouper(self._roots, self.new_circuit[i].inputs).simplify()
-            substitute_evaluator = Evaluator(self._roots, substitute_inputs)
-            if substitute_evaluator.costs() < evaluator.costs() \
-                    or substitute_evaluator.nand_count() < evaluator.nand_count():
-                self.new_circuit[i].inputs = substitute_inputs
-        return self.new_circuit
+            Grouper(self._roots, self.outputs[i].inputs).simplify()
+        return self.outputs
 
     def _find_substitute_gate(self, circuit_gate: Gate):
+        """ Find and return a valid substitute gate from self.gates. """
+        self._gate_to_replace = circuit_gate
         for gate in self.gates:
-            _inputs = circuit_gate.inputs
-            unique_inputs = list(dict.fromkeys(_inputs))
-            skip_base_circuit = isinstance(circuit_gate, gate)
+            unique_inputs = list(dict.fromkeys(circuit_gate.inputs))
             substitute_gate = self._find_substitution(gate, unique_inputs, {circuit_gate},
-                                                      skip_base_circuit=skip_base_circuit)
+                                                      skip_base_circuit=isinstance(circuit_gate, gate))
             if substitute_gate is not None:
                 return substitute_gate
         return None
 
     def _find_substitution(self, gate, unique_inputs: list, sub_circuit: set, skip_base_circuit=False):
+        """ Return the given gate, correctly wired, if it is a valid substitute. """
         if not skip_base_circuit and sum(c_gate.cost for c_gate in sub_circuit) == gate.cost:
             circuit_to_gate_mapping = self._get_input_mapping(gate, unique_inputs)
             if circuit_to_gate_mapping is not None:
                 return gate(*[unique_inputs[index] for index in circuit_to_gate_mapping])
 
         for expanded_input in [_input for _input in unique_inputs if _input.inputs]:
-            _sub_circuit = sub_circuit | {c_gate for c_gate in expanded_input.inputs}
+            _sub_circuit = sub_circuit | {expanded_input}
             if sum(c_gate.cost for c_gate in _sub_circuit) <= gate.cost:
-                _inputs = [c_gate for c_gate in unique_inputs if c_gate is not expanded_input]
+                _inputs = [_input for _input in unique_inputs if _input is not expanded_input]
                 _inputs.extend(expanded_input.inputs)
                 _unique_inputs = list(dict.fromkeys(_inputs))
 
-                circuit_to_gate_mapping = self._find_substitution(gate, _unique_inputs, _sub_circuit)
-                if circuit_to_gate_mapping is not None:
-                    return gate(*[_unique_inputs[index] for index in circuit_to_gate_mapping])
+                substitute_gate = self._find_substitution(gate, _unique_inputs, _sub_circuit)
+                if substitute_gate is not None:
+                    return substitute_gate
 
         return None
 
@@ -109,17 +106,17 @@ class Grouper(Evaluator):
         if len(unique_inputs) <= n_inputs:
             sub_circuit_mapping = self._get_sub_circuit_mapping(unique_inputs)
             columns = list(range(len(unique_inputs))) * (1 + n_inputs - len(unique_inputs))
-            # TODO: cast permutations iterator to set?
-            for column_permutation in permutations(columns, n_inputs):
+            for column_permutation in set(permutations(columns, n_inputs)):
                 if self._permute_mapping(sub_circuit_mapping, column_permutation) == gate.mapping:
                     return column_permutation
         return None
 
     def _get_sub_circuit_mapping(self, unique_inputs: [Gate]) -> {tuple: tuple}:
+        """ Get the state mapping of the current sub-circuit. """
         sub_circuit_mapping = {}
         for input_state in product(self.states, repeat=len(unique_inputs)):
             with fix_state(unique_inputs, input_state):
-                sub_circuit_mapping[input_state] = tuple(gate.state for gate in self.new_circuit)
+                sub_circuit_mapping[input_state] = (self._gate_to_replace.state,)
         return sub_circuit_mapping
 
     @staticmethod
@@ -132,18 +129,16 @@ class Grouper(Evaluator):
 
 
 def main():
-    roots = [Bit()]
-    outputs = [Nand(roots[0], roots[0])]
-    print(outputs)
-    g = Grouper(roots, outputs)
-    print(g.simplify())
-
+    from LogicGates.Solver import Solver
     roots = [Bit(), Bit()]
-    _nand = Nand(roots[0], roots[1])
-    outputs = [Nand(_nand, _nand)]
-    print(outputs)
-    g = Grouper(roots, outputs)
-    print(g.simplify())
+    expected = "00: 00; 01: 01; 10: 01; 11: 10"
+    solution = Solver(roots, expected).solve()
+    print(solution.output)
+    grouper = Grouper(roots, solution.output)
+    print(grouper.simplify())
+    # TODO: currently replaces sub-circuits with components that feed into other sub-circuit
+    #  -> may return broken circuit?
+    #  -> costs can increase
 
 
 if __name__ == '__main__':

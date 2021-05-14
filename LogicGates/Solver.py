@@ -45,7 +45,7 @@ class Solver:
                         valid_solutions.append(solution)
             gates.extend(new_gates)
         self.solution = min(valid_solutions, key=attrgetter("cost"))
-        print(self.solution)
+        return self.solution
 
     def _check_gate_combinations(self, gates, new_gate):
         valid_combinations = set(permutations(gates * (self._expect_n_outputs - 1), (self._expect_n_outputs - 1)))
@@ -69,31 +69,31 @@ def main():
     print("Id")
     roots = [Bit()]
     expected = "0: 0; 1: 1"
-    Solver(roots, expected).solve()
+    print(Solver(roots, expected).solve())
 
     print("Inv")
     expected = "0: 1; 1: 0"
-    Solver(roots, expected).solve()
+    print(Solver(roots, expected).solve())
 
     print("AND")
     roots = [Bit(), Bit()]
     expected = "00: 0; 01: 0; 10: 0; 11: 1"
-    Solver(roots, expected).solve()
+    print(Solver(roots, expected).solve())
 
     print("OR")
     roots = [Bit(), Bit()]
     expected = "00: 0; 01: 1; 10: 1; 11: 1"
-    Solver(roots, expected).solve()
+    print(Solver(roots, expected).solve())
 
     print("XOR")
     roots = [Bit(), Bit()]
     expected = "00: 0; 01: 1; 10: 1; 11: 0"
-    Solver(roots, expected).solve()
+    print(Solver(roots, expected).solve())
 
     print("ADD")
     roots = [Bit(), Bit()]
     expected = "00: 00; 01: 01; 10: 01; 11: 10"
-    Solver(roots, expected).solve()
+    print(Solver(roots, expected).solve())
 
 
 if __name__ == "__main__":
