@@ -1,12 +1,24 @@
 from LogicGates.Evaluation import Grouper
 from LogicGates.Gates import Bit, Inv, And, Or, Xor
-from LogicGates.Solver import Solver
+from LogicGates.Solver import Solver, HSolver
 
 
 def test_solver():
+    # Id
+    roots = [Bit()]
+    expected = "0: 0; 1: 1"
+    solution = Solver(roots, expected).solve()
+    assert solution.cost == 0
+
     # Inv
     roots = [Bit()]
     expected = "0: 1; 1: 0"
+    solution = Solver(roots, expected).solve()
+    assert solution.cost == 1
+
+    # Nand
+    roots = [Bit(), Bit()]
+    expected = "00: 1; 01: 1; 10: 1; 11: 0"
     solution = Solver(roots, expected).solve()
     assert solution.cost == 1
 
@@ -32,6 +44,50 @@ def test_solver():
     roots = [Bit(), Bit()]
     expected = "00: 00; 01: 01; 10: 01; 11: 10"
     solution = Solver(roots, expected).solve()
+    assert solution.cost == 5
+
+
+def test_hsolver():
+    # Id
+    roots = [Bit()]
+    expected = "0: 0; 1: 1"
+    solution = HSolver(roots, expected).solve()
+    assert solution.cost == 0
+
+    # Inv
+    roots = [Bit()]
+    expected = "0: 1; 1: 0"
+    solution = HSolver(roots, expected).solve()
+    assert solution.cost == 1
+
+    # Nand
+    roots = [Bit(), Bit()]
+    expected = "00: 1; 01: 1; 10: 1; 11: 0"
+    solution = HSolver(roots, expected).solve()
+    assert solution.cost == 1
+
+    # And
+    roots = [Bit(), Bit()]
+    expected = "00: 0; 01: 0; 10: 0; 11: 1"
+    solution = HSolver(roots, expected).solve()
+    assert solution.cost == 2
+
+    # Or
+    roots = [Bit(), Bit()]
+    expected = "00: 0; 01: 1; 10: 1; 11: 1"
+    solution = HSolver(roots, expected).solve()
+    assert solution.cost == 3
+
+    # Xor
+    roots = [Bit(), Bit()]
+    expected = "00: 0; 01: 1; 10: 1; 11: 0"
+    solution = HSolver(roots, expected).solve()
+    assert solution.cost == 4
+
+    # HalfAdd
+    roots = [Bit(), Bit()]
+    expected = "00: 00; 01: 01; 10: 01; 11: 10"
+    solution = HSolver(roots, expected).solve()
     assert solution.cost == 5
 
 

@@ -35,13 +35,13 @@ class Evaluator:
     def costs(self):
         gates = set()
         for gate in self.outputs:
-            gates |= gate.get_input_recursively()
+            gates |= gate.get_sub_circuit_recursively()
         return sum(gate.cost for gate in gates)
 
     def nand_count(self):
         gates = set()
         for gate in self.outputs:
-            gates |= gate.get_input_recursively()
+            gates |= gate.get_sub_circuit_recursively()
         return sum(isinstance(gate, Nand) for gate in gates)
 
 
@@ -49,9 +49,15 @@ class Grouper(Evaluator):
     gates: [Gate] = [Inv, And, Or, Xor]
     gates.sort(key=attrgetter("cost"))
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, roots: [Bit], outputs: [Gate], all_gates=None):
+        super().__init__(roots, outputs)
         self._gate_to_replace = None
+        if all_gates is None:
+            self._all_gates = set()
+            for gate in self.outputs:
+                self._all_gates |= gate.get_sub_circuit_recursively()
+        else:
+            self._all_gates = all_gates
 
     def simplify(self):
         """ Substitute outputs list items in-place for one of cls.gates. """
@@ -59,12 +65,15 @@ class Grouper(Evaluator):
             # substitutions strictly including self._outputs[i]
             substitute_gate = self._find_substitute_gate(self.outputs[i])
             while substitute_gate is not None:
+                for receiver in self.outputs[i].output_to:
+                    receiver.inputs.remove(self.outputs[i])
+                    receiver.register_inputs(substitute_gate)
                 self.outputs[i] = substitute_gate
                 substitute_gate = self._find_substitute_gate(self.outputs[i])
 
         for i in range(len(self.outputs)):
             # recursive substitutions restricted to new_circuit[i].inputs
-            Grouper(self._roots, self.outputs[i].inputs).simplify()
+            Grouper(self._roots, self.outputs[i].inputs, self._all_gates).simplify()
         return self.outputs
 
     def _find_substitute_gate(self, circuit_gate: Gate):
@@ -78,11 +87,16 @@ class Grouper(Evaluator):
                 return substitute_gate
         return None
 
-    def _find_substitution(self, gate, unique_inputs: list, sub_circuit: set, skip_base_circuit=False):
+    def _find_substitution(self, gate: type(Gate), unique_inputs: [Gate], sub_circuit: {Gate}, skip_base_circuit=False):
         """ Return the given gate, correctly wired, if it is a valid substitute. """
-        if not skip_base_circuit and sum(c_gate.cost for c_gate in sub_circuit) == gate.cost:
+        if not skip_base_circuit and sum(c_gate.cost for c_gate in sub_circuit) == gate.cost and \
+                all(_output in sub_circuit
+                    for c_gate in (g for g in sub_circuit if g is not self._gate_to_replace)
+                    for _output in c_gate.output_to):
             circuit_to_gate_mapping = self._get_input_mapping(gate, unique_inputs)
             if circuit_to_gate_mapping is not None:
+                for _input in unique_inputs:
+                    _input.output_to.clear()
                 return gate(*[unique_inputs[index] for index in circuit_to_gate_mapping])
 
         for expanded_input in [_input for _input in unique_inputs if _input.inputs]:
@@ -98,7 +112,7 @@ class Grouper(Evaluator):
 
         return None
 
-    def _get_input_mapping(self, gate, unique_inputs) -> [int]:
+    def _get_input_mapping(self, gate: type(Gate), unique_inputs: [Gate]) -> [int]:
         """ Return the circuit to gate mapping [int]. E.g [2, 2, 1] implies gate(unique_inputs[2], u_i[2], u_i[1]). """
         # for the gate to fit, sub-circuit inputs must be <= gate inputs
         # as the gate should be optimal, sub-circuit costs must be >= gate costs
@@ -136,9 +150,6 @@ def main():
     print(solution.output)
     grouper = Grouper(roots, solution.output)
     print(grouper.simplify())
-    # TODO: currently replaces sub-circuits with components that feed into other sub-circuit
-    #  -> may return broken circuit?
-    #  -> costs can increase
 
 
 if __name__ == '__main__':
