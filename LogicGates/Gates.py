@@ -1,25 +1,41 @@
+from collections import defaultdict
+from itertools import product
+
+
 class Gate:
+    states = (0, 1)
+    mapping = defaultdict(lambda: 0)
     cost = 0
-    fixed_state = None
-    mapping = {(0,): 0, (1,): 1}
+
+    __slots__ = ["inputs", "depends_on", "total_cost", "nand_count", "key", "_id"]
 
     def __init__(self, *inputs: 'Gate'):
         self.inputs = inputs
-        assert len(self.inputs) == self.expected_number_of_inputs()
+        self.depends_on = set()
+        self.total_cost = self.cost
+        self.nand_count = 0
+        self.key: (int,) = ()
+        self._initialize_from_inputs()
 
     def __repr__(self):
+        return f"{self.__class__.__name__}[{self.total_cost}]_{self._id % 999:03d}()"
+
+    def print(self):
         input_repr = ""
         for _input in self.inputs:
-            for line in repr(_input).split('\n'):
+            for line in _input.print().split('\n'):
                 input_repr += f"\n\t{line}"
         if input_repr:
             input_repr += "\n"
-        return f"{self.__class__.__name__}_{id(self) % 100000}({input_repr})"
+        return f"{self.__class__.__name__}[{self.total_cost}]_{self._id % 999:03d}({input_repr})"
 
-    @property
-    def state(self):
-        return self.mapping[tuple(_input.state for _input in self.inputs)] if self.fixed_state is None \
-            else self.fixed_state
+    def _initialize_from_inputs(self):
+        self.key = tuple(self.mapping[tuple(_input.key[i] for _input in self.inputs)]
+                         for i in range(len(self.inputs[0].key)))
+        self.depends_on = {gate for _input in self.inputs for gate in _input.depends_on} | set(self.inputs)
+        self.total_cost = sum(gate.cost for gate in self.depends_on) + self.cost
+        self.nand_count = sum(isinstance(gate, Nand) for gate in self.depends_on) + isinstance(self, Nand)
+        self._id = sum(value*2**index for index, value in enumerate(self.key))
 
     @classmethod
     def expected_number_of_inputs(cls):
@@ -30,13 +46,37 @@ class Gate:
 
     get_virtual_sub_circuit_recursively = get_sub_circuit_recursively
 
+    def __eq__(self, other):
+        if self.__class__ == other.__class__:
+            return self.key == other.key and self.total_cost == other.total_cost and self.depends_on == other.depends_on
+        return NotImplemented
+
+    def __hash__(self):
+        return hash((self.key, self.total_cost))
+
 
 class Bit(Gate):
     mapping = None
-    fixed_state = 0
 
-    def __init__(self):
+    def __init__(self, index, n_bits):
+        self.index = index
+        self.n_bits = n_bits
         super().__init__()
+
+    def __repr__(self):
+        return f"Bit({self.index}, {self.n_bits})"
+
+    print = __repr__
+
+    @classmethod
+    def init_n(cls, n_bits):
+        return [cls(index, n_bits) for index in range(n_bits)]
+
+    def _initialize_from_inputs(self):
+        self.total_mapping = dict.fromkeys(product(self.states, repeat=self.n_bits))
+        for input_vector in self.total_mapping:
+            self.total_mapping[input_vector] = int(bool(input_vector[self.n_bits - 1 - self.index]))
+        self.key = tuple(self.total_mapping.values())
 
 
 class SymmetricGate(Gate):
@@ -160,26 +200,27 @@ class OutputSelector(Gate, object):
         super(object).__init__()
         self.gate = gate
         self.output_mode = output_mode
+        index = bool(output_mode == 'L')
+        self.total_mapping = {k: v[index] for k, v in self.gate.total_mapping}
 
     def __repr__(self):
         return f"{self.output_mode}-{repr(self.gate)}"
+
+    @property
+    def total_cost(self):
+        return self.gate.total_cost
+
+    @property
+    def depends_on(self):
+        return self.gate.depends_on
 
     @property
     def inputs(self):
         return self.gate.inputs
 
     @property
-    def cost(self):
-        return self.gate.cost
-
-    @property
     def mapping(self):
         return self.gate.mapping_l if self.output_mode == 'L' else self.gate.mapping_h
-
-    @property
-    def state(self):
-        return self.mapping[tuple(_input.state for _input in self.gate.inputs)] if self.gate.fixed_state is None \
-            else self.gate.fixed_state[self.output_mode == 'H']
 
     def expected_number_of_inputs(self):
         return self.gate.expected_number_of_inputs()

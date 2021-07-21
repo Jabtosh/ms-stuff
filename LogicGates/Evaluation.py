@@ -1,18 +1,7 @@
-from contextlib import contextmanager
 from itertools import product, permutations
 from operator import attrgetter
 
-from LogicGates.Gates import Bit, Gate, Nand, And, Or, Xor, Inv
-
-
-@contextmanager
-def fix_state(gates, state):
-    state_before = [gate.fixed_state for gate in gates]
-    for n, gate in enumerate(gates):
-        gate.fixed_state = state[n]
-    yield
-    for n, gate in enumerate(gates):
-        gate.fixed_state = state_before[n]
+from LogicGates.Gates import Bit, Gate, And, Or, Xor, Inv
 
 
 class Evaluator:
@@ -21,28 +10,6 @@ class Evaluator:
     def __init__(self, roots: [Bit], outputs: [Gate]):
         self._roots = roots
         self.outputs = outputs
-
-    def compare_with_mapping(self, expected_mapping):
-        for state in product(self.states, repeat=len(self._roots)):
-            with fix_state(self._roots, state):
-                _input = tuple(_root.state for _root in self._roots)
-                _output = tuple(gate.state for gate in self.outputs)
-                if expected_mapping[_input] != _output:
-                    return False
-
-        return True
-
-    def costs(self):
-        gates = set()
-        for gate in self.outputs:
-            gates |= gate.get_sub_circuit_recursively()
-        return sum(gate.cost for gate in gates)
-
-    def nand_count(self):
-        gates = set()
-        for gate in self.outputs:
-            gates |= gate.get_sub_circuit_recursively()
-        return sum(isinstance(gate, Nand) for gate in gates)
 
 
 class Grouper(Evaluator):
@@ -53,9 +20,9 @@ class Grouper(Evaluator):
         super().__init__(roots, outputs)
         self._gate_to_replace = None
         if all_gates is None:
-            self._all_gates = set()
+            self._all_gates = set(self.outputs)
             for gate in self.outputs:
-                self._all_gates |= gate.get_sub_circuit_recursively()
+                self._all_gates |= gate.depends_on
         else:
             self._all_gates = all_gates
 
